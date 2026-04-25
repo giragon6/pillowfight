@@ -1,5 +1,6 @@
-import { PlayerData, PlayerPositionData } from "./Player";
-import { GameInitData } from "./server";
+import type { PlayerData, PlayerPositionData } from "../shared/types/playerTypes";
+import type { GameInitData } from "./server";
+import type { ScenePosition } from "../src/game/types"
 
 export interface ServerToClientEvents {
     playerLeft: (socketId: string) => void;
@@ -9,7 +10,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-    playerMove: (data: PlayerPositionData) => void;
+    playerMove: (data: ScenePosition ) => void;
     playerCustomization: (playerData: PlayerData) => void;
 }
 
