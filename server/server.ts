@@ -145,6 +145,8 @@ io.on('connection', (socket) => {
         if (unclaimedTiles.length > 0) {
             io.emit('tilesUnclaimed', unclaimedTiles);
         }
+    });
+
     socket.on('sendWagerRequest', (data) => {
         const sender = gameManager.getPlayer(socket.id);
         const recipientSocket = io.sockets.sockets.get(data.toPlayerId);
@@ -338,7 +340,7 @@ io.on('connection', (socket) => {
         gameManager.removePlayer(socket.id);
         socket.broadcast.emit('playerLeft', socket.id);
     });
-});})
+});
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
