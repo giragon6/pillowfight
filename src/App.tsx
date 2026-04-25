@@ -1,23 +1,8 @@
 import { useState } from 'react'
 import headerImage from './assets/homepage/pillow-fight-header.png'
-<<<<<<< Updated upstream
 import { setupGame } from './game/setupGame'
 import { getAvatarAssets } from './game/utils/avatarLoader'
 import type { PlayerData } from '../shared/types/playerTypes'
-=======
-import avatar1 from './assets/avatar/avtr1.png'
-import avatar2 from './assets/avatar/avtr2.png'
-import avatar3 from './assets/avatar/avtr3.png'
-import avatar4 from './assets/avatar/avtr4.png'
-import avatar5 from './assets/avatar/avtr5.png'
-import avatar6 from './assets/avatar/avtr6.png'
-import avatar7 from './assets/avatar/pancake1.png'
-import avatar8 from './assets/avatar/pancake2.png'
-import avatar9 from './assets/avatar/pancake3.png'
-import avatar10 from './assets/avatar/pancake4.png'
-import avatar11 from './assets/avatar/pancake5.png'
-import avatar12 from './assets/avatar/pancake6.png'
->>>>>>> Stashed changes
 import './App.css'
 
 function App() {
@@ -149,7 +134,6 @@ function App() {
         <fieldset className="field avatars" disabled={isStarting}>
           <legend>Choose avatar</legend>
           <div className="avatar-options">
-<<<<<<< Updated upstream
             {avatarAssets.length > 0 ? (
               avatarAssets.map(({ key, url }) => (
                 <label key={key} className="avatar-choice" htmlFor={`avatar-${key}`}>
@@ -174,80 +158,6 @@ function App() {
             ) : (
               <p>No avatars available</p>
             )}
-=======
-            <label className="avatar-choice" htmlFor="avatar-1">
-              <input id="avatar-1" type="radio" name="avatar" value="1" aria-label="Avatar 1" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar1} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-2">
-              <input id="avatar-2" type="radio" name="avatar" value="2" aria-label="Avatar 2" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar2} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-3">
-              <input id="avatar-3" type="radio" name="avatar" value="3" aria-label="Avatar 3" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar3} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-4">
-              <input id="avatar-4" type="radio" name="avatar" value="4" aria-label="Avatar 4" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar4} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-5">
-              <input id="avatar-5" type="radio" name="avatar" value="5" aria-label="Avatar 5" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar5} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-6">
-              <input id="avatar-6" type="radio" name="avatar" value="6" aria-label="Avatar 6" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar6} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-7">
-              <input id="avatar-7" type="radio" name="avatar" value="7" aria-label="Avatar 7" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar7} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-8">
-              <input id="avatar-8" type="radio" name="avatar" value="8" aria-label="Avatar 8" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar8} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-9">
-              <input id="avatar-9" type="radio" name="avatar" value="9" aria-label="Avatar 9" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar9} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-10">
-              <input id="avatar-10" type="radio" name="avatar" value="10" aria-label="Avatar 10" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar10} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-11">
-              <input id="avatar-11" type="radio" name="avatar" value="11" aria-label="Avatar 11" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar11} alt="" />
-              </span>
-            </label>
-            <label className="avatar-choice" htmlFor="avatar-12">
-              <input id="avatar-12" type="radio" name="avatar" value="12" aria-label="Avatar 12" />
-              <span className="avatar-slot" aria-hidden="true">
-                <img className="avatar-image" src={avatar12} alt="" />
-              </span>
-            </label>
->>>>>>> Stashed changes
           </div>
         </fieldset>
 
