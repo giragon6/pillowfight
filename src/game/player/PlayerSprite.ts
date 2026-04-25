@@ -17,6 +17,7 @@ export default class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
     
     constructor(scene: Phaser.Scene, x: number, y: number, playerId: string, isCurrentPlayer: boolean, playerData: PlayerData) {  
         const avatarKey = playerData.avatar;      
+        const AVATAR_SIZE_PX = 135;
 
         super(scene, x, y, avatarKey);
 
@@ -47,6 +48,7 @@ export default class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
         this.body!.setCircle(this.radius);
         
         this.setOrigin(0.5, 0.5);
+        this.setDisplaySize(AVATAR_SIZE_PX, AVATAR_SIZE_PX);
         
         this.nameText = scene.add.text(x, y - 35, this.playerName, {
             fontSize: '12px',
