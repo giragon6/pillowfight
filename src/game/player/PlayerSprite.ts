@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from 'phaser';
 import type { Faction } from "../../../shared/types/factions";
 import type { PlayerData } from "../../../shared/types/playerTypes";
 import { getFactionColor } from "../../../shared/factionColors";
