@@ -31,20 +31,7 @@ export async function preloadAvatarTextures(scene: Phaser.Scene, size = 160): Pr
       
       img.onload = () => {
         try {
-          // Create a canvas at the target size
-          const canvas = document.createElement('canvas');
-          canvas.width = size;
-          canvas.height = size;
-          
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            // Draw the image scaled to fill the canvas
-            ctx.drawImage(img, 0, 0, size, size);
-            
-            // Add the canvas as a texture using Phaser's internal method
-            scene.textures.addCanvas(key, canvas);
-            console.log(`✓ avatar ${key} loaded and registered (resized to ${size}x${size})`);
-          }
+            scene.textures.addImage(key, img);
         } catch (e) {
           console.error(`Failed to create texture for ${key}:`, e);
         }
