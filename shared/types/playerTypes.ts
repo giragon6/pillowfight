@@ -3,6 +3,11 @@ import type { Faction } from './factions'
 export type PlayerJSON = {
     id: string;
     username: string;
+    avatar: string; 
+    sound: string;
+    faction: Faction;
+    x: number;
+    y: number;
 }
 
 export type PlayerData = {
