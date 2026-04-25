@@ -69,8 +69,6 @@ export interface ServerToClientEvents {
     wagerRequestResult: (data: WagerResultEvent) => void;
     minigameStarted: (data: MinigameStartedEvent) => void;
     minigameCompleted: (data: MinigameCompletedEvent) => void;
-    tileUpdated: (data: {x: number, y: number, faction?: Faction | undefined, owner?: string | undefined, contents?: any[]}) => void;
-    tilesUpdated: (tiles: Array<{x: number, y: number, faction?: Faction | undefined, owner?: string | undefined, contents?: any[]}>) => void;
 }
 
 export interface ClientToServerEvents {

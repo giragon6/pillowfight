@@ -89,8 +89,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     create() {        
-        this.physics.world.setBounds(0, 0, 1600, 1200);
-        this.cameras.main.setBounds(0, 0, 1600, 1200);
+        this.physics.world.setBounds(0, 0, this.scale.width, this.scale.height);
+        this.cameras.main.setBounds(0, 0, this.scale.width, this.scale.height);
         
         // Generate the tileset texture early
         this.generateTilesetTexture();
@@ -119,6 +119,10 @@ export class GameScene extends Phaser.Scene {
             this.closeWagerModal();
             this.clearWagerToast();
             this.closeMinigameModal();
+        });
+
+        this.scale.on('resize', () => {
+            this.fitWorldToViewport();
         });
     }
 
@@ -828,6 +832,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     createTilemapFromData(tilemapData: { tiles: Array<{x: number, y: number, index: number, properties?: Record<string, any>}>; width: number; height: number; tileWidth: number; tileHeight: number }) {
+        const worldWidth = tilemapData.width * tilemapData.tileWidth;
+        const worldHeight = tilemapData.height * tilemapData.tileHeight;
+        this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
+        this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+
         // Create tilemap with just the basic config (no layers yet)
         const mapData = {
             width: tilemapData.width,
@@ -878,6 +887,23 @@ export class GameScene extends Phaser.Scene {
         if (!this.tilemapLayer) {
             console.warn('Failed to create tilemap layer');
         }
+
+        this.fitWorldToViewport();
+    }
+
+    fitWorldToViewport() {
+        if (!this.tilemap) return;
+
+        const worldWidth = this.tilemap.widthInPixels;
+        const worldHeight = this.tilemap.heightInPixels;
+        const viewportWidth = this.scale.width;
+        const viewportHeight = this.scale.height;
+
+        if (worldWidth <= 0 || worldHeight <= 0) return;
+
+        // Prevent seeing outside map bounds on extra-wide/tall screens.
+        const minZoomToFill = Math.max(viewportWidth / worldWidth, viewportHeight / worldHeight);
+        this.cameras.main.setZoom(Math.max(1, minZoomToFill));
     }
 
 

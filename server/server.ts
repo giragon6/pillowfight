@@ -17,7 +17,10 @@ const io = new Server<
 >(httpServer, {
     cors: {
         origin: '*'
-    }
+    },
+    // Detect dropped tabs quickly so stale players are cleaned up.
+    pingInterval: 5000,
+    pingTimeout: 5000,
 });
 
 const gameManager = new GameManager();
@@ -44,6 +47,45 @@ function isBetInAllowedRange(value: number) {
     return Number.isInteger(value) && value >= 5;
 }
 
+function removePlayerAndTerritory(playerId: string) {
+    const ownedTiles = gameManager.getTilesByOwner(playerId);
+    if (ownedTiles.length > 0) {
+        const unclaimedTiles = gameManager.unclaimTiles(
+            ownedTiles.map((tile) => ({ x: tile.x, y: tile.y }))
+        );
+        if (unclaimedTiles.length > 0) {
+            io.emit('tilesUnclaimed', unclaimedTiles);
+        }
+    }
+
+    gameManager.removePlayer(playerId);
+    io.emit('playerLeft', playerId);
+}
+
+function pruneStalePlayers() {
+    const activeSocketIds = new Set(io.sockets.sockets.keys());
+    const stalePlayerIds = gameManager
+        .getAllPlayers()
+        .map((player) => player.id)
+        .filter((playerId) => !activeSocketIds.has(playerId));
+
+    for (const stalePlayerId of stalePlayerIds) {
+        removePlayerAndTerritory(stalePlayerId);
+
+        for (const [requestId, request] of pendingWagerRequests.entries()) {
+            if (request.fromPlayerId === stalePlayerId || request.toPlayerId === stalePlayerId) {
+                pendingWagerRequests.delete(requestId);
+            }
+        }
+
+        for (const [sessionId, session] of activeMinigames.entries()) {
+            if (session.players.includes(stalePlayerId)) {
+                activeMinigames.delete(sessionId);
+            }
+        }
+    }
+}
+
 //todo: move this
 export type GameInitData = {
     playerId: string, 
@@ -61,9 +103,11 @@ export type GameInitData = {
 
 io.on('connection', (socket) => {
     console.log('New player connected:', socket.id);
+    pruneStalePlayers();
 
     socket.on('playerCustomization', (playerData: PlayerData) => {
         console.log('Received player customization:', playerData);
+        pruneStalePlayers();
         
         const player = gameManager.addPlayer(socket.id, playerData);
         const tilemap = gameManager.getTilemap();
@@ -145,6 +189,8 @@ io.on('connection', (socket) => {
         if (unclaimedTiles.length > 0) {
             io.emit('tilesUnclaimed', unclaimedTiles);
         }
+    });
+
     socket.on('sendWagerRequest', (data) => {
         const sender = gameManager.getPlayer(socket.id);
         const recipientSocket = io.sockets.sockets.get(data.toPlayerId);
@@ -334,13 +380,13 @@ io.on('connection', (socket) => {
             }
         }
                 
-        // Remove player and broadcast
-        gameManager.removePlayer(socket.id);
-        socket.broadcast.emit('playerLeft', socket.id);
+        // Remove player and clear their claimed territory.
+        removePlayerAndTerritory(socket.id);
+        pruneStalePlayers();
     });
-});})
+});
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-})
+});

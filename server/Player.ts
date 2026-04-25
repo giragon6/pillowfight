@@ -21,7 +21,10 @@ export default class Player {
     }
 
     updatePlayerData(newData: PlayerData) {
-
+        this.username = newData.username;
+        this.avatar = newData.avatar;
+        this.sound = newData.sound;
+        this.faction = newData.faction;
     }
 
     updatePosition(newX: number, newY: number) {
