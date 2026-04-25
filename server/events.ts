@@ -1,21 +1,27 @@
 import type { PlayerData, PlayerJSON, PlayerPositionData } from "../shared/types/playerTypes";
 import type { GameInitData } from "./server";
 import type { ScenePosition } from "../src/game/types"
-import type { Faction } from "../shared/types/factions";
+import type { TileData } from "./TilemapManager";
 
 export interface ServerToClientEvents {
     playerLeft: (socketId: string) => void;
     playerMoved: (data: PlayerPositionData) => void;
     gameInit: (data: GameInitData) => void;
     playerJoined: (playerJson: PlayerJSON, playerData: PlayerData) => void;
-    tileUpdated: (data: {x: number, y: number, faction?: Faction | undefined, owner?: string | undefined, contents?: any[]}) => void;
-    tilesUpdated: (tiles: Array<{x: number, y: number, faction?: Faction | undefined, owner?: string | undefined, contents?: any[]}>) => void;
+    tileUpdated: (data: TileData) => void;
+    tilesUpdated: (tiles: TileData[]) => void;
+    tilesClaimed: (tiles: TileData[]) => void;
+    tilesUnclaimed: (tiles: TileData[]) => void;
 }
 
 export interface ClientToServerEvents {
     playerMove: (data: ScenePosition ) => void;
     playerCustomization: (playerData: PlayerData) => void;
     gameSceneReady: () => void;
+    tileUpdate: (data: { x: number; y: number; index: number; properties?: Record<string, any> }) => void;
+    tilesUpdate: (tiles: Array<{ x: number; y: number; index: number; properties?: Record<string, any> }>) => void;
+    claimTiles: (tiles: Array<{ x: number; y: number }>) => void;
+    unclaimTiles: (tiles: Array<{ x: number; y: number }>) => void;
 }
 
 export interface SocketData {
