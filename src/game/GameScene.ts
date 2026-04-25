@@ -6,7 +6,12 @@ import type { ClientToServerEvents, ServerToClientEvents } from '../../server/ev
 import type { ScenePosition } from "./types";
 import type { GameInitData } from "../../server/server";
 import { preloadAvatarTextures } from "./utils/avatarLoader";
-import type { WagerRequestEvent, WagerResultEvent } from '../../server/events'
+import type {
+    MinigameCompletedEvent,
+    MinigameStartedEvent,
+    WagerRequestEvent,
+    WagerResultEvent,
+} from '../../server/events'
 import { pickRandomMinigame } from "./minigames/Minigame";
 import './minigames/wagerModal.css'
 
@@ -33,6 +38,12 @@ export class GameScene extends Phaser.Scene {
     activeWagerModal: HTMLDivElement | null;
     activeWagerToast: HTMLDivElement | null;
     activeToastTimeout: number | null;
+    activeMinigameModal: HTMLDivElement | null;
+    activeMinigameTimer: number | null;
+    activeMinigameDurationTimer: number | null;
+    currentMinigameScore: number;
+    currentMinigameRequestId: string | null;
+    hasSubmittedMinigameScore: boolean;
     
     constructor() {
         super({ key: 'GameScene' });
@@ -54,6 +65,12 @@ export class GameScene extends Phaser.Scene {
         this.activeWagerModal = null;
         this.activeWagerToast = null;
         this.activeToastTimeout = null;
+        this.activeMinigameModal = null;
+        this.activeMinigameTimer = null;
+        this.activeMinigameDurationTimer = null;
+        this.currentMinigameScore = 0;
+        this.currentMinigameRequestId = null;
+        this.hasSubmittedMinigameScore = false;
     }
 
     initialize(socket: Socket<ServerToClientEvents, ClientToServerEvents>) {
@@ -93,6 +110,7 @@ export class GameScene extends Phaser.Scene {
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
             this.closeWagerModal();
             this.clearWagerToast();
+            this.closeMinigameModal();
         });
     }
 
@@ -193,6 +211,14 @@ export class GameScene extends Phaser.Scene {
 
         this.socket!.on('wagerRequestResult', (result) => {
             this.handleWagerResult(result);
+        });
+
+        this.socket!.on('minigameStarted', (event) => {
+            this.openMinigameModal(event);
+        });
+
+        this.socket!.on('minigameCompleted', (event) => {
+            this.handleMinigameCompleted(event);
         });
     }
 
@@ -324,22 +350,40 @@ export class GameScene extends Phaser.Scene {
 
     openOutgoingWagerModal(targetPlayer: PlayerSprite) {
         const minigame = pickRandomMinigame();
-        const stake = 'Bragging rights + 1 tile';
 
-        const bodyCopy = `${targetPlayer.playerName}, wanna settle this with ${minigame.name}?\n\nStake: ${stake}`;
+        const bodyCopy = `${targetPlayer.playerName}, wanna settle this with ${minigame.name}?`;
+
+        const betInput = document.createElement('input');
+        betInput.className = 'wager-bet-input';
+        betInput.type = 'number';
+        betInput.min = '5';
+        betInput.step = '1';
+        betInput.value = '10';
+        betInput.placeholder = 'Bet tiles';
+
+        const helperText = document.createElement('p');
+        helperText.className = 'wager-helper-text';
+        helperText.textContent = 'Minimum bet is 5 tiles.';
 
         this.openWagerModal({
             pill: 'Sleepover Challenge',
             title: `Challenge ${targetPlayer.playerName}?`,
             body: bodyCopy,
+            customContent: [betInput, helperText],
             primaryLabel: 'Send Request',
             secondaryLabel: 'Maybe Later',
             onPrimary: () => {
+                const betTiles = Math.floor(Number(betInput.value));
+                if (!Number.isInteger(betTiles) || betTiles < 5) {
+                    helperText.textContent = 'Minimum bet is 5 tiles.';
+                    return;
+                }
+
                 this.socket?.emit('sendWagerRequest', {
                     toPlayerId: targetPlayer.playerId,
                     minigameId: minigame.id,
                     minigameName: minigame.name,
-                    stake,
+                    betTiles,
                 });
                 this.showWagerToast(`Wager request sent to ${targetPlayer.playerName}.`);
                 this.closeWagerModal();
@@ -351,19 +395,39 @@ export class GameScene extends Phaser.Scene {
     }
 
     openIncomingWagerModal(request: WagerRequestEvent) {
-        const bodyCopy = `${request.fromUsername} challenged you to ${request.minigameName}.\n\nStake: ${request.stake}`;
+        const bodyCopy = `${request.fromUsername} challenged you to ${request.minigameName}.`;
+
+        const betInput = document.createElement('input');
+        betInput.className = 'wager-bet-input';
+        betInput.type = 'number';
+        betInput.min = '5';
+        betInput.step = '1';
+        betInput.value = '10';
+        betInput.placeholder = 'Your hidden bet';
+
+        const helperText = document.createElement('p');
+        helperText.className = 'wager-helper-text';
+        helperText.textContent = 'Minimum bet is 5 tiles.';
 
         this.openWagerModal({
             pill: 'Incoming Wager',
             title: 'Accept this challenge?',
             body: bodyCopy,
+            customContent: [betInput, helperText],
             primaryLabel: 'Yes, Let\'s Play',
             secondaryLabel: 'No Thanks',
             onPrimary: () => {
+                const betTiles = Math.floor(Number(betInput.value));
+                if (!Number.isInteger(betTiles) || betTiles < 5) {
+                    helperText.textContent = 'Minimum bet is 5 tiles.';
+                    return;
+                }
+
                 this.socket?.emit('sendWagerResponse', {
                     requestId: request.requestId,
                     fromPlayerId: request.fromPlayerId,
                     accepted: true,
+                    betTiles,
                 });
                 this.closeWagerModal();
             },
@@ -387,7 +451,12 @@ export class GameScene extends Phaser.Scene {
         const otherName = otherPlayer?.playerName ?? 'Player';
 
         if (result.accepted) {
-            this.showWagerToast(`${otherName} accepted. ${result.minigameName} is loading soon.`);
+            this.showWagerToast(`${otherName} accepted. ${result.minigameName} starts now.`);
+            return;
+        }
+
+        if (result.reason) {
+            this.showWagerToast(result.reason);
             return;
         }
 
@@ -402,6 +471,7 @@ export class GameScene extends Phaser.Scene {
         pill: string;
         title: string;
         body: string;
+        customContent?: HTMLElement[];
         primaryLabel: string;
         secondaryLabel: string;
         onPrimary: () => void;
@@ -428,6 +498,12 @@ export class GameScene extends Phaser.Scene {
         copy.textContent = options.body;
         copy.style.whiteSpace = 'pre-line';
 
+        const customContent = document.createElement('div');
+        customContent.className = 'wager-modal-custom';
+        if (options.customContent) {
+            options.customContent.forEach((element) => customContent.appendChild(element));
+        }
+
         const actions = document.createElement('div');
         actions.className = 'wager-modal-actions';
 
@@ -449,6 +525,7 @@ export class GameScene extends Phaser.Scene {
         card.appendChild(pill);
         card.appendChild(title);
         card.appendChild(copy);
+        card.appendChild(customContent);
         card.appendChild(actions);
         overlay.appendChild(card);
 
@@ -491,6 +568,138 @@ export class GameScene extends Phaser.Scene {
         if (!this.activeWagerToast) return;
         this.activeWagerToast.remove();
         this.activeWagerToast = null;
+    }
+
+    openMinigameModal(event: MinigameStartedEvent) {
+        if (!this.currentPlayer) return;
+        if (!event.playerIds.includes(this.currentPlayer.playerId)) return;
+
+        this.closeMinigameModal();
+
+        const opponentId = event.playerIds.find((id) => id !== this.currentPlayer!.playerId) ?? '';
+        const opponentName = this.players.get(opponentId)?.playerName ?? 'Opponent';
+
+        this.currentMinigameRequestId = event.requestId;
+        this.currentMinigameScore = 0;
+        this.hasSubmittedMinigameScore = false;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'wager-modal-overlay';
+
+        const card = document.createElement('section');
+        card.className = 'wager-modal-card minigame-card';
+
+        const pill = document.createElement('span');
+        pill.className = 'wager-modal-pill';
+        pill.textContent = 'Minigame Live';
+
+        const title = document.createElement('h2');
+        title.className = 'wager-modal-title';
+        title.textContent = `${event.minigameName} vs ${opponentName}`;
+
+        const copy = document.createElement('p');
+        copy.className = 'wager-modal-copy';
+        copy.textContent = 'Tap as fast as you can for 5 seconds. Highest taps wins the pillow fight.';
+
+        const timerText = document.createElement('p');
+        timerText.className = 'minigame-timer';
+        timerText.textContent = 'Time left: 5.0s';
+
+        const scoreText = document.createElement('p');
+        scoreText.className = 'minigame-score';
+        scoreText.textContent = 'Your score: 0';
+
+        const tapButton = document.createElement('button');
+        tapButton.type = 'button';
+        tapButton.className = 'wager-button wager-button-primary minigame-button';
+        tapButton.textContent = 'Swing Pillow';
+        tapButton.onclick = () => {
+            if (this.hasSubmittedMinigameScore) return;
+            this.currentMinigameScore += 1;
+            scoreText.textContent = `Your score: ${this.currentMinigameScore}`;
+        };
+
+        card.appendChild(pill);
+        card.appendChild(title);
+        card.appendChild(copy);
+        card.appendChild(timerText);
+        card.appendChild(scoreText);
+        card.appendChild(tapButton);
+        overlay.appendChild(card);
+
+        document.body.appendChild(overlay);
+        this.activeMinigameModal = overlay;
+
+        const startedAt = Date.now();
+        this.activeMinigameTimer = window.setInterval(() => {
+            const elapsedMs = Date.now() - startedAt;
+            const remainingMs = Math.max(0, 5000 - elapsedMs);
+            timerText.textContent = `Time left: ${(remainingMs / 1000).toFixed(1)}s`;
+        }, 100);
+
+        this.activeMinigameDurationTimer = window.setTimeout(() => {
+            this.submitMinigameScore();
+            tapButton.disabled = true;
+            tapButton.textContent = 'Waiting For Opponent...';
+            timerText.textContent = 'Time left: 0.0s';
+        }, 5000);
+    }
+
+    submitMinigameScore() {
+        if (this.hasSubmittedMinigameScore) return;
+        if (!this.currentMinigameRequestId) return;
+
+        this.hasSubmittedMinigameScore = true;
+        this.socket?.emit('submitMinigameScore', {
+            requestId: this.currentMinigameRequestId,
+            score: this.currentMinigameScore,
+        });
+    }
+
+    handleMinigameCompleted(event: MinigameCompletedEvent) {
+        if (!this.currentPlayer) return;
+        if (this.currentMinigameRequestId !== event.requestId) return;
+
+        const winnerId = event.winnerPlayerId;
+        const myId = this.currentPlayer.playerId;
+        const myScore = event.scores.find((entry) => entry.playerId === myId)?.score ?? 0;
+        const opponentScore = event.scores.find((entry) => entry.playerId !== myId)?.score ?? 0;
+
+        this.closeMinigameModal();
+
+        if (!winnerId) {
+            this.showWagerToast(`Tie game (${myScore}-${opponentScore}). No pillow-fight winner this round.`);
+            return;
+        }
+
+        if (winnerId === myId) {
+            this.showWagerToast(`You won ${event.minigameName} (${myScore}-${opponentScore}) and won the pillow fight!`);
+            return;
+        }
+
+        const winnerName = this.players.get(winnerId)?.playerName ?? 'Opponent';
+        this.showWagerToast(`${winnerName} won ${event.minigameName} (${opponentScore}-${myScore}) and won the pillow fight.`);
+    }
+
+    closeMinigameModal() {
+        if (this.activeMinigameTimer !== null) {
+            window.clearInterval(this.activeMinigameTimer);
+            this.activeMinigameTimer = null;
+        }
+
+        if (this.activeMinigameDurationTimer !== null) {
+            window.clearTimeout(this.activeMinigameDurationTimer);
+            this.activeMinigameDurationTimer = null;
+        }
+
+        if (this.activeMinigameModal) {
+            this.activeMinigameModal.remove();
+            this.activeMinigameModal = null;
+        }
+
+        this.currentMinigameScore = 0;
+        this.currentMinigameRequestId = null;
+        this.hasSubmittedMinigameScore = false;
     }
 
     playSpatialAudio(soundKey: string, position: ScenePosition) {
