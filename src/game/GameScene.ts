@@ -127,6 +127,14 @@ export class GameScene extends Phaser.Scene {
             
             // Create Phaser tilemap from server data
             this.gameMap.createTilemapFromData(data.tilemap);
+            // Ensure world and camera bounds match the tilemap so the camera can follow correctly
+            if (this.gameMap.tilemap) {
+                const worldWidth = this.gameMap.tilemap.widthInPixels;
+                const worldHeight = this.gameMap.tilemap.heightInPixels;
+                this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
+                this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+                this.fitWorldToViewport();
+            }
             
             // Create current player with custom data
             this.currentPlayer = new PlayerSprite(this, data.player.x, data.player.y, data.playerId, true, data.playerData);

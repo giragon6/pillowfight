@@ -130,8 +130,7 @@ export class GameMap {
 
         const tex = this.scene.textures.get('tileset');
         if (tex && typeof (tex as any).setFilter === 'function') {
-            // Phaser.Textures.FilterMode.NEAREST === 0
-            (tex as any).setFilter(Phaser.Textures.FilterMode.NEAREST);
+            (tex as any).setFilter(0);
         }
         if (!this.tilemapLayer) {
             console.warn('Failed to create tilemap layer');
