@@ -1,9 +1,10 @@
 import { GameManager } from "./GameManager";
-import { PlayerData, PlayerJSON, PlayerPositionData } from "./Player";
+import type { PlayerData, PlayerJSON } from "../shared/types/playerTypes";
 import express from 'express';
-import { ClientToServerEvents, ServerToClientEvents, SocketData } from "./events";
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./events";
 import { Server } from 'socket.io';
 import http from 'http';
+import type { ScenePosition } from "../src/game/types";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -21,7 +22,7 @@ const io = new Server<
 const gameManager = new GameManager();
 
 //todo: move this
-export type GameInitData = {playerId: string, player: PlayerJSON, players: PlayerJSON[]};
+export type GameInitData = {playerId: string, player: PlayerJSON, playerData: PlayerData, players: PlayerJSON[]};
 
 io.on('connection', (socket) => {
     console.log('New player connected:', socket.id);
@@ -35,6 +36,7 @@ io.on('connection', (socket) => {
         socket.emit('gameInit', {
             playerId: socket.id,
             player: player.toJSON(),
+            playerData: playerData,
             players: gameManager.getAllPlayers().filter(p => p.id !== socket.id)
         });
 
@@ -42,7 +44,7 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('playerJoined', player.toJSON());
     });
 
-    socket.on('playerMove', (data: PlayerPositionData) => {
+    socket.on('playerMove', (data: ScenePosition) => {
         gameManager.updatePlayerPosition(socket.id, data.x, data.y);
         socket.broadcast.emit('playerMoved', {
             playerId: socket.id,

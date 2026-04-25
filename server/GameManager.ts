@@ -1,4 +1,5 @@
-import Player, { PlayerData } from './Player'
+import type { PlayerData } from '../shared/types/playerTypes';
+import Player from './Player'
 
 export class GameManager {
     players: Map<string, Player>;
