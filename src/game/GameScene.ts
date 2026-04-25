@@ -5,6 +5,9 @@ import type { ClientToServerEvents, ServerToClientEvents } from '../../server/ev
 import type { ScenePosition } from "./types";
 import type { GameInitData } from "../../server/server";
 import { preloadAvatarTextures } from "./utils/avatarLoader";
+import type { WagerRequestEvent, WagerResultEvent } from '../../server/events'
+import { pickRandomMinigame } from "./minigames/Minigame";
+import './minigames/wagerModal.css'
 
 export class GameScene extends Phaser.Scene {
     players: Map<string, PlayerSprite>;
@@ -25,6 +28,9 @@ export class GameScene extends Phaser.Scene {
     moveSpeed: number;
     clickIndicator: Phaser.GameObjects.Graphics | null;
     isMobile: boolean;
+    activeWagerModal: HTMLDivElement | null;
+    activeWagerToast: HTMLDivElement | null;
+    activeToastTimeout: number | null;
     
     // Tilemap
     tilemap: Phaser.Tilemaps.Tilemap | null;
@@ -50,6 +56,9 @@ export class GameScene extends Phaser.Scene {
         // Tilemap properties
         this.tilemap = null;
         this.tilemapLayer = null;
+        this.activeWagerModal = null;
+        this.activeWagerToast = null;
+        this.activeToastTimeout = null;
     }
 
     initialize(socket: Socket<ServerToClientEvents, ClientToServerEvents>) {
@@ -88,6 +97,11 @@ export class GameScene extends Phaser.Scene {
         // Mark scene as ready
         this.isReady = true;
         console.log('GameScene is ready');
+
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.closeWagerModal();
+            this.clearWagerToast();
+        });
     }
 
     setupSocketListeners() {
@@ -193,6 +207,14 @@ export class GameScene extends Phaser.Scene {
                 });
             }
         });
+
+        this.socket!.on('wagerRequestReceived', (request) => {
+            this.openIncomingWagerModal(request);
+        });
+
+        this.socket!.on('wagerRequestResult', (result) => {
+            this.handleWagerResult(result);
+        });
     }
 
     update() {
@@ -267,6 +289,14 @@ export class GameScene extends Phaser.Scene {
     handlePointerDown(pointer: Phaser.Input.Pointer) {
       if (!this.currentPlayer) return;
         const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+
+                const clickedPlayer = this.checkPlayerClick(worldPoint.x, worldPoint.y);
+                if (clickedPlayer && clickedPlayer.playerId !== this.currentPlayer.playerId) {
+                        this.targetPosition = null;
+                        this.hideClickIndicator();
+                        this.openOutgoingWagerModal(clickedPlayer);
+                        return;
+                }
         
         this.targetPosition = { x: worldPoint.x, y: worldPoint.y };
         this.showClickIndicator(worldPoint.x, worldPoint.y);
@@ -311,6 +341,177 @@ export class GameScene extends Phaser.Scene {
         if (indicator) {
             indicator.style.display = 'none';
         }
+    }
+
+    openOutgoingWagerModal(targetPlayer: PlayerSprite) {
+        const minigame = pickRandomMinigame();
+        const stake = 'Bragging rights + 1 tile';
+
+        const bodyCopy = `${targetPlayer.playerName}, wanna settle this with ${minigame.name}?\n\nStake: ${stake}`;
+
+        this.openWagerModal({
+            pill: 'Sleepover Challenge',
+            title: `Challenge ${targetPlayer.playerName}?`,
+            body: bodyCopy,
+            primaryLabel: 'Send Request',
+            secondaryLabel: 'Maybe Later',
+            onPrimary: () => {
+                this.socket?.emit('sendWagerRequest', {
+                    toPlayerId: targetPlayer.playerId,
+                    minigameId: minigame.id,
+                    minigameName: minigame.name,
+                    stake,
+                });
+                this.showWagerToast(`Wager request sent to ${targetPlayer.playerName}.`);
+                this.closeWagerModal();
+            },
+            onSecondary: () => {
+                this.closeWagerModal();
+            },
+        });
+    }
+
+    openIncomingWagerModal(request: WagerRequestEvent) {
+        const bodyCopy = `${request.fromUsername} challenged you to ${request.minigameName}.\n\nStake: ${request.stake}`;
+
+        this.openWagerModal({
+            pill: 'Incoming Wager',
+            title: 'Accept this challenge?',
+            body: bodyCopy,
+            primaryLabel: 'Yes, Let\'s Play',
+            secondaryLabel: 'No Thanks',
+            onPrimary: () => {
+                this.socket?.emit('sendWagerResponse', {
+                    requestId: request.requestId,
+                    fromPlayerId: request.fromPlayerId,
+                    accepted: true,
+                });
+                this.closeWagerModal();
+            },
+            onSecondary: () => {
+                this.socket?.emit('sendWagerResponse', {
+                    requestId: request.requestId,
+                    fromPlayerId: request.fromPlayerId,
+                    accepted: false,
+                });
+                this.closeWagerModal();
+            },
+        });
+    }
+
+    handleWagerResult(result: WagerResultEvent) {
+        if (!this.currentPlayer) return;
+
+        const isRequester = result.fromPlayerId === this.currentPlayer.playerId;
+        const otherPlayerId = isRequester ? result.toPlayerId : result.fromPlayerId;
+        const otherPlayer = this.players.get(otherPlayerId);
+        const otherName = otherPlayer?.playerName ?? 'Player';
+
+        if (result.accepted) {
+            this.showWagerToast(`${otherName} accepted. ${result.minigameName} is loading soon.`);
+            return;
+        }
+
+        if (isRequester) {
+            this.showWagerToast(`${otherName} declined your wager request.`);
+        } else {
+            this.showWagerToast('You declined the wager request.');
+        }
+    }
+
+    openWagerModal(options: {
+        pill: string;
+        title: string;
+        body: string;
+        primaryLabel: string;
+        secondaryLabel: string;
+        onPrimary: () => void;
+        onSecondary: () => void;
+    }) {
+        this.closeWagerModal();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'wager-modal-overlay';
+
+        const card = document.createElement('section');
+        card.className = 'wager-modal-card';
+
+        const pill = document.createElement('span');
+        pill.className = 'wager-modal-pill';
+        pill.textContent = options.pill;
+
+        const title = document.createElement('h2');
+        title.className = 'wager-modal-title';
+        title.textContent = options.title;
+
+        const copy = document.createElement('p');
+        copy.className = 'wager-modal-copy';
+        copy.textContent = options.body;
+        copy.style.whiteSpace = 'pre-line';
+
+        const actions = document.createElement('div');
+        actions.className = 'wager-modal-actions';
+
+        const secondaryButton = document.createElement('button');
+        secondaryButton.type = 'button';
+        secondaryButton.className = 'wager-button wager-button-secondary';
+        secondaryButton.textContent = options.secondaryLabel;
+        secondaryButton.onclick = options.onSecondary;
+
+        const primaryButton = document.createElement('button');
+        primaryButton.type = 'button';
+        primaryButton.className = 'wager-button wager-button-primary';
+        primaryButton.textContent = options.primaryLabel;
+        primaryButton.onclick = options.onPrimary;
+
+        actions.appendChild(secondaryButton);
+        actions.appendChild(primaryButton);
+
+        card.appendChild(pill);
+        card.appendChild(title);
+        card.appendChild(copy);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) {
+                this.closeWagerModal();
+            }
+        });
+
+        document.body.appendChild(overlay);
+        this.activeWagerModal = overlay;
+    }
+
+    closeWagerModal() {
+        if (!this.activeWagerModal) return;
+        this.activeWagerModal.remove();
+        this.activeWagerModal = null;
+    }
+
+    showWagerToast(message: string) {
+        this.clearWagerToast();
+
+        const toast = document.createElement('div');
+        toast.className = 'wager-toast';
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+        this.activeWagerToast = toast;
+        this.activeToastTimeout = window.setTimeout(() => {
+            this.clearWagerToast();
+        }, 2800);
+    }
+
+    clearWagerToast() {
+        if (this.activeToastTimeout !== null) {
+            window.clearTimeout(this.activeToastTimeout);
+            this.activeToastTimeout = null;
+        }
+
+        if (!this.activeWagerToast) return;
+        this.activeWagerToast.remove();
+        this.activeWagerToast = null;
     }
 
     playSpatialAudio(soundKey: string, position: ScenePosition) {
