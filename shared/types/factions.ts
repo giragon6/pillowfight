@@ -1,0 +1,1 @@
+export type Faction = 'Lavender' | 'Yellow' | 'Blue' | 'Pink';
