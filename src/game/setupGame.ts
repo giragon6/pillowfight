@@ -6,6 +6,25 @@ import type { ClientToServerEvents, ServerToClientEvents } from '../../server/ev
 let gameInstance: Phaser.Game | null = null;
 let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 let gameScene: GameScene | null = null;
+let exitHandlersAttached = false;
+
+function attachExitHandlers() {
+  if (exitHandlersAttached) return;
+
+  const disconnectPlayer = () => {
+    if (!socketInstance) return;
+
+    // Avoid reconnect loops while page is closing.
+    socketInstance.io.opts.reconnection = false;
+    if (socketInstance.connected) {
+      socketInstance.disconnect();
+    }
+  };
+
+  window.addEventListener('beforeunload', disconnectPlayer);
+  window.addEventListener('pagehide', disconnectPlayer);
+  exitHandlersAttached = true;
+}
 
 export function setupGame(): {
   game: Phaser.Game;
@@ -25,6 +44,7 @@ export function setupGame(): {
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
     });
+    attachExitHandlers();
   }
 
   // Create Phaser game instance if it doesn't exist
@@ -53,7 +73,7 @@ export function setupGame(): {
         antialias: false,
       },
       scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
     };

@@ -15,8 +15,7 @@ export function getAvatarAssets(): AvatarAsset[] {
   return Object.entries(avatarModules).map(([path, moduleData]) => {
     const filename = path.split('/').pop() || '';
     const key = filename.replace(/\.[^/.]+$/, ''); // Remove file extension
-    // Extract the actual URL from the module - it should be the default export
-    const url = typeof moduleData === 'string' ? moduleData : (moduleData.default || moduleData);
+    const url = String(moduleData);
     return { key, url };
   });
 }
