@@ -10,7 +10,12 @@ export class GameScene extends Phaser.Scene {
     cursors: Phaser.Types.Input.Keyboard.CursorKeys | null;
     socket: Socket<ServerToClientEvents, ClientToServerEvents> | null;
     isReady: boolean;
-    wasd: object | null;
+    wasd: {
+        W: Phaser.Input.Keyboard.Key;
+        A: Phaser.Input.Keyboard.Key;
+        S: Phaser.Input.Keyboard.Key;
+        D: Phaser.Input.Keyboard.Key;
+    } | null;
     playerGroup: Phaser.Physics.Arcade.Group | null;
 
     //Click to move
@@ -51,7 +56,12 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, 1600, 1200);
                 
         this.cursors = this.input.keyboard!.createCursorKeys();
-        this.wasd = this.input.keyboard!.addKeys('W,S,A,D');
+        this.wasd = this.input.keyboard!.addKeys('W,S,A,D') as {
+            W: Phaser.Input.Keyboard.Key;
+            A: Phaser.Input.Keyboard.Key;
+            S: Phaser.Input.Keyboard.Key;
+            D: Phaser.Input.Keyboard.Key;
+        };
         
         // Set up click-to-move for mobile and desktop
         this.input.on('pointerdown', this.handlePointerDown, this);
@@ -69,12 +79,9 @@ export class GameScene extends Phaser.Scene {
     setupSocketListeners() {
         this.socket!.on('gameInit', (data: GameInitData) => {
             console.log('Game initialized:', data);
-
-            // Get player data from pending customization
-            const playerData = window.pendingPlayerData || { name: 'Player', color: 0x3498db };
             
             // Create current player with custom data
-            this.currentPlayer = new PlayerSprite(this, data.player.x, data.player.y, data.playerId, true, playerData);
+            this.currentPlayer = new PlayerSprite(this, data.player.x, data.player.y, data.playerId, true, data.playerData);
             this.players.set(data.playerId, this.currentPlayer);
             
             // Create player group for collisions
@@ -98,14 +105,13 @@ export class GameScene extends Phaser.Scene {
             this.physics.add.collider(this.playerGroup, this.playerGroup);
             
             console.log('All game objects created, showing game UI');
-            // Now show the game UI
-            window.showGame();
+            this.socket!.emit('gameSceneReady');
         });
 
-        this.socket!.on('playerJoined', (playerData) => {
-            console.log('Player joined:', playerData);
-            const playerSprite = new PlayerSprite(this, playerData.x, playerData.y, playerData.id, false, playerData);
-            this.players.set(playerData.id, playerSprite);
+        this.socket!.on('playerJoined', (playerJson, playerData) => {
+            console.log('Player joined:', playerJson);
+            const playerSprite = new PlayerSprite(this, playerJson.x, playerJson.y, playerJson.id, false, playerData);
+            this.players.set(playerJson.id, playerSprite);
             if (this.playerGroup) {
                 this.playerGroup.add(playerSprite);
             }

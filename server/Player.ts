@@ -1,5 +1,5 @@
 import type { Faction } from '../shared/types/factions';
-import type { PlayerData } from '../shared/types/playerTypes';
+import type { PlayerData, PlayerJSON } from '../shared/types/playerTypes';
 
 export default class Player {
     id: string;
@@ -7,6 +7,8 @@ export default class Player {
     avatar: string;
     sound: string;
     faction: Faction;
+    x: number;
+    y: number;
 
     constructor(socketId: string, x: number, y: number, playerData: PlayerData) {
         this.id = socketId;
@@ -14,6 +16,8 @@ export default class Player {
         this.avatar = playerData.avatar;
         this.sound = playerData.sound;
         this.faction = playerData.faction;
+        this.x = x;
+        this.y = y;
     }
 
     updatePlayerData(newData: PlayerData) {
@@ -24,7 +28,15 @@ export default class Player {
 
     }
 
-    toJSON() {
-        return { id: this.id, username: this.username, avatar: this.avatar, sound: this.sound, faction: this.faction };
+    toJSON(): PlayerJSON {
+        return { 
+            id: this.id, 
+            username: this.username, 
+            avatar: this.avatar, 
+            sound: this.sound, 
+            faction: this.faction, 
+            x: this.x, 
+            y: this.y 
+        };
     }
 }

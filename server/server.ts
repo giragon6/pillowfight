@@ -41,7 +41,7 @@ io.on('connection', (socket) => {
         });
 
         // Broadcast new player to all other players
-        socket.broadcast.emit('playerJoined', player.toJSON());
+        socket.broadcast.emit('playerJoined', player.toJSON(), playerData);
     });
 
     socket.on('playerMove', (data: ScenePosition) => {
@@ -51,6 +51,11 @@ io.on('connection', (socket) => {
             x: data.x,
             y: data.y
         });
+    });
+
+    //todo: handle this (show game UI)
+    socket.on('gameSceneReady', () => {
+
     });
 
     socket.on('disconnect', () => {
