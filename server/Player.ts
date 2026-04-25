@@ -25,7 +25,8 @@ export default class Player {
     }
 
     updatePosition(newX: number, newY: number) {
-
+        this.x = newX;
+        this.y = newY;
     }
 
     toJSON(): PlayerJSON {
@@ -36,7 +37,7 @@ export default class Player {
             sound: this.sound, 
             faction: this.faction, 
             x: this.x, 
-            y: this.y 
+            y: this.y,
         };
     }
 }

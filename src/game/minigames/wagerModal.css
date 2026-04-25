@@ -46,11 +46,61 @@
   line-height: 1.45;
 }
 
+.wager-modal-custom {
+  margin-top: 12px;
+}
+
+.wager-bet-input {
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 69, 136, 0.45);
+  background: #fff9ff;
+  color: #4b2455;
+  padding: 0 12px;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  font-family: 'Trebuchet MS', 'Verdana', sans-serif;
+}
+
+.wager-bet-input:focus {
+  outline: 2px solid rgba(126, 69, 136, 0.4);
+  outline-offset: 1px;
+}
+
+.wager-helper-text {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  color: #6d3c73;
+  font-family: 'Trebuchet MS', 'Verdana', sans-serif;
+}
+
 .wager-modal-actions {
   margin-top: 18px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.minigame-card {
+  max-width: 460px;
+}
+
+.minigame-timer,
+.minigame-score {
+  margin: 12px 0 0;
+  font-family: 'Arial Rounded MT Bold', 'Trebuchet MS', 'Verdana', sans-serif;
+  color: #5a2e67;
+}
+
+.minigame-button {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.minigame-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .wager-button {
