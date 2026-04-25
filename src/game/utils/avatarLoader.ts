@@ -20,11 +20,32 @@ export function getAvatarAssets(): AvatarAsset[] {
   });
 }
 
-export function preloadAvatarTextures(scene: Phaser.Scene): void {
+export async function preloadAvatarTextures(scene: Phaser.Scene): Promise<void> {
   const avatars = getAvatarAssets();
-  console.log('Queueing avatar textures:', avatars.length);
-
-  for (const { key, url } of avatars) {
-    scene.load.image(key, url);
-  }
+  console.log("preloading avatars:", avatars.length);
+  
+  const loadPromises = avatars.map(({ key, url }) => {
+    return new Promise<void>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        try {
+            scene.textures.addImage(key, img);
+        } catch (e) {
+          console.error(`Failed to create texture for ${key}:`, e);
+        }
+        resolve();
+      };
+      
+      img.onerror = () => {
+        console.error(`Failed to load image: ${key} from ${url}`);
+        resolve();
+      };
+      
+      img.src = url;
+    });
+  });
+  
+  await Promise.all(loadPromises);
 }
