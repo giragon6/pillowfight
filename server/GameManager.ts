@@ -8,7 +8,7 @@ export class GameManager {
 
     constructor() {
         this.players = new Map();
-        this.tilemapManager = new TilemapManager(150, 150, 100, 100);
+        this.tilemapManager = new TilemapManager(150, 150, 75, 75);
     }
 
     addPlayer(socketId: string, playerData: PlayerData) {
