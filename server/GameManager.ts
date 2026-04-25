@@ -33,6 +33,10 @@ export class GameManager {
         }
     }
 
+    getPlayer(socketId: string) {
+        return this.players.get(socketId);
+    }
+
     getAllPlayers() {
         return Array.from(this.players.values()).map(player => player.toJSON());
     }
