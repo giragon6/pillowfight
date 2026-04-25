@@ -138,36 +138,36 @@ export class TilemapManager {
     }
 
     allocateSpawnPatch(playerId: string, faction: Faction, patchSize: number): TileData[] {
-        const spawnTiles: Array<{x: number, y: number}> = [];
-        
-        // Generate the spawn patch coordinates
-        for (let dx = 0; dx < patchSize; dx++) {
-            for (let dy = 0; dy < patchSize; dy++) {
-                const x = this.nextSpawnX + dx;
-                const y = this.nextSpawnY + dy;
-                
-                // Bounds checking - skip if out of bounds
-                if (x < this.width && y < this.height) {
-                    spawnTiles.push({ x, y });
+        for (let startY = 0; startY <= this.height - patchSize; startY++) {
+            for (let startX = 0; startX <= this.width - patchSize; startX++) {
+                let ok = true;
+                for (let dx = 0; dx < patchSize && ok; dx++) {
+                    for (let dy = 0; dy < patchSize; dy++) {
+                        const tx = startX + dx;
+                        const ty = startY + dy;
+                        const tile = this.getTile(tx, ty);
+                        if (!tile || tile.index !== TILE_INDICES.EMPTY) {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (ok) {
+                    const spawnTiles: Array<{ x: number; y: number }> = [];
+                    for (let dx = 0; dx < patchSize; dx++) {
+                        for (let dy = 0; dy < patchSize; dy++) {
+                            spawnTiles.push({ x: startX + dx, y: startY + dy });
+                        }
+                    }
+
+                    const claimedTiles = this.claimTiles(playerId, faction, spawnTiles);
+                    return claimedTiles;
                 }
             }
         }
-        
-        // Claim the spawn patch for this player
-        const claimedTiles = this.claimTiles(playerId, faction, spawnTiles);
-        
-        // Move spawn point to next location
-        this.nextSpawnX += patchSize;
-        if (this.nextSpawnX + patchSize > this.width) {
-            this.nextSpawnX = 0;
-            this.nextSpawnY += patchSize;
-        }
-        
-        // Wrap around if we've exceeded map height
-        if (this.nextSpawnY + patchSize > this.height) {
-            this.nextSpawnY = 0;
-        }
-        
-        return claimedTiles;
+
+        // No contiguous free patch found
+        return [];
     }
 }
