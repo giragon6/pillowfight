@@ -1,3 +1,5 @@
+import type { GameScene } from "../GameScene";
+
 export type MinigameDefinition = {
 	id: string;
 	name: string;
@@ -6,28 +8,27 @@ export type MinigameDefinition = {
 
 export const SLEEPOVER_MINIGAMES: MinigameDefinition[] = [
 	{
-		id: 'pillow-duel',
-		name: 'Pillow Duel',
-		description: 'Best two out of three pillow swings wins the wager.',
-	},
-	{
-		id: 'flashlight-tag',
-		name: 'Flashlight Tag',
-		description: 'Catch your rival in the beam before they hide.',
-	},
-	{
-		id: 'snack-sprint',
-		name: 'Snack Sprint',
-		description: 'Race to gather midnight snacks before the timer ends.',
-	},
-	{
-		id: 'blanket-fort',
-		name: 'Blanket Fort Build-Off',
-		description: 'Build the strongest fort under pressure.',
+		id: 'tow',
+		name: 'Tug of War',
+		description: 'Click as fast as you can.',
 	},
 ];
 
 export function pickRandomMinigame(): MinigameDefinition {
 	const randomIndex = Math.floor(Math.random() * SLEEPOVER_MINIGAMES.length);
 	return SLEEPOVER_MINIGAMES[randomIndex];
+}
+
+export abstract class Minigame {
+	requestId: string;
+	gameScene: GameScene;
+	def: MinigameDefinition;
+
+	constructor(requestId: string, gameScene: GameScene, def: MinigameDefinition) {
+		this.requestId = requestId;
+		this.gameScene = gameScene;
+		this.def = def;
+	}
+
+	abstract setupSocketListeners: () => void;
 }
