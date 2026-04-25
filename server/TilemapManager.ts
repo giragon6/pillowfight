@@ -33,7 +33,7 @@ export class TilemapManager {
     nextSpawnX: number;
     nextSpawnY: number;
 
-    constructor(width: number = 50, height: number = 50, tileWidth: number = 32, tileHeight: number = 32) {
+    constructor(width: number, height: number, tileWidth: number, tileHeight: number) {
         this.width = width;
         this.height = height;
         this.tileWidth = tileWidth;
@@ -94,15 +94,6 @@ export class TilemapManager {
             }
         }
         return result;
-    }
-
-    getMapConfig() {
-        return {
-            width: this.width,
-            height: this.height,
-            tileWidth: this.tileWidth,
-            tileHeight: this.tileHeight
-        };
     }
 
     claimTiles(playerId: string, faction: Faction, tiles: Array<{x: number, y: number}>): TileData[] {

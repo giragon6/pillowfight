@@ -13,6 +13,7 @@ import type {
 } from '../../server/events'
 import { pickRandomMinigame } from "./minigames/Minigame";
 import './minigames/wagerModal.css'
+import { GameMap } from "../tilemap/GameMap";
 
 export class GameScene extends Phaser.Scene {
     players: Map<string, PlayerSprite>;
@@ -42,10 +43,8 @@ export class GameScene extends Phaser.Scene {
     currentMinigameScore: number;
     currentMinigameRequestId: string | null;
     hasSubmittedMinigameScore: boolean;
-    
-    // Tilemap
-    tilemap: Phaser.Tilemaps.Tilemap | null;
-    tilemapLayer: Phaser.Tilemaps.TilemapLayer | null;
+    gameMap: GameMap;
+
     
     constructor() {
         super({ key: 'GameScene' });
@@ -64,9 +63,6 @@ export class GameScene extends Phaser.Scene {
         this.clickIndicator = null;
         this.isMobile = window.innerWidth <= 768;
         
-        // Tilemap properties
-        this.tilemap = null;
-        this.tilemapLayer = null;
         this.activeWagerModal = null;
         this.activeWagerToast = null;
         this.activeToastTimeout = null;
@@ -76,6 +72,8 @@ export class GameScene extends Phaser.Scene {
         this.currentMinigameScore = 0;
         this.currentMinigameRequestId = null;
         this.hasSubmittedMinigameScore = false;
+
+        this.gameMap = new GameMap(this);
     }
 
     initialize(socket: Socket<ServerToClientEvents, ClientToServerEvents>) {
@@ -91,9 +89,6 @@ export class GameScene extends Phaser.Scene {
     create() {        
         this.physics.world.setBounds(0, 0, this.scale.width, this.scale.height);
         this.cameras.main.setBounds(0, 0, this.scale.width, this.scale.height);
-        
-        // Generate the tileset texture early
-        this.generateTilesetTexture();
                 
         this.cursors = this.input.keyboard!.createCursorKeys();
         this.wasd = this.input.keyboard!.addKeys('W,S,A,D') as {
@@ -131,7 +126,7 @@ export class GameScene extends Phaser.Scene {
             console.log('Game initialized:', data);
             
             // Create Phaser tilemap from server data
-            this.createTilemapFromData(data.tilemap);
+            this.gameMap.createTilemapFromData(data.tilemap);
             
             // Create current player with custom data
             this.currentPlayer = new PlayerSprite(this, data.player.x, data.player.y, data.playerId, true, data.playerData);
@@ -188,46 +183,38 @@ export class GameScene extends Phaser.Scene {
         
         // Handle single tile update from server
         this.socket!.on('tileUpdated', (tileData) => {
-            if (this.tilemapLayer) {
-                this.tilemapLayer.putTileAt(tileData.index, tileData.x, tileData.y);
-            }
+            this.gameMap.putTileAt(tileData.index, tileData.x, tileData.y);
         });
         
         // Handle batch tile updates from server
         this.socket!.on('tilesUpdated', (tilesData) => {
-            if (this.tilemapLayer) {
-                tilesData.forEach(tile => {
-                    this.tilemapLayer!.putTileAt(tile.index, tile.x, tile.y);
-                });
-            }
+            tilesData.forEach(tile => {
+                this.gameMap.putTileAt(tile.index, tile.x, tile.y);
+            });
         });
         
         // Handle tiles claimed from server
         this.socket!.on('tilesClaimed', (tilesData) => {
-            if (this.tilemapLayer) {
-                tilesData.forEach(tile => {
-                    this.tilemapLayer!.putTileAt(tile.index, tile.x, tile.y);
-                    // Set properties on the tile
-                    const tileObject = this.tilemapLayer!.getTileAt(tile.x, tile.y, false);
-                    if (tileObject && tile.properties) {
-                        tileObject.properties = tile.properties;
-                    }
-                });
-            }
+            tilesData.forEach(tile => {
+                this.gameMap.putTileAt(tile.index, tile.x, tile.y);
+                // Set properties on the tile
+                const tileObject = this.gameMap.getTileAt(tile.x, tile.y, false);
+                if (tileObject && tile.properties) {
+                    tileObject.properties = tile.properties;
+                }
+            });
         });
         
         // Handle tiles unclaimed from server
         this.socket!.on('tilesUnclaimed', (tilesData) => {
-            if (this.tilemapLayer) {
-                tilesData.forEach(tile => {
-                    this.tilemapLayer!.putTileAt(tile.index, tile.x, tile.y);
-                    // Clear properties on the tile
-                    const tileObject = this.tilemapLayer!.getTileAt(tile.x, tile.y, false);
-                    if (tileObject) {
-                        tileObject.properties = tile.properties || { owner: null, faction: null };
-                    }
-                });
-            }
+            tilesData.forEach(tile => {
+                this.gameMap.putTileAt(tile.index, tile.x, tile.y);
+                // Clear properties on the tile
+                const tileObject = this.gameMap.getTileAt(tile.x, tile.y, false);
+                if (tileObject) {
+                    tileObject.properties = tile.properties || { owner: null, faction: null };
+                }
+            });
         });
 
         this.socket!.on('wagerRequestReceived', (request) => {
@@ -768,134 +755,11 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    generateTilesetTexture() {
-        // Import faction colors
-        const FACTION_COLORS = {
-            Lavender: 0xB497BD,
-            Yellow: 0xF7E967,
-            Blue: 0x4DA6FF,
-            Pink: 0xFF8FC0,
-        };
-
-        const TILE_SIZE = 32;
-        const NUM_TILES = 5; // 0=empty, 1=Lavender, 2=Yellow, 3=Blue, 4=Pink
-        const TILESET_WIDTH = TILE_SIZE * NUM_TILES;
-        const TILESET_HEIGHT = TILE_SIZE;
-
-        // Create a render texture for the tileset
-        const texture = this.textures.createCanvas('tileset', TILESET_WIDTH, TILESET_HEIGHT);
-        if (!texture) {
-            console.warn('Failed to create tileset texture');
-            return;
-        }
-        console.log('Tileset texture created:', texture);
-        const ctx = texture.getContext();
-
-        // Draw tiles
-        // Tile 0: Empty (light gray)
-        ctx.fillStyle = '#EEEEEE';
-        ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = '#999999';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
-
-        // Tile 1: Lavender
-        ctx.fillStyle = `#${FACTION_COLORS.Lavender.toString(16).padStart(6, '0')}`;
-        ctx.fillRect(TILE_SIZE, 0, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = '#999999';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(TILE_SIZE, 0, TILE_SIZE, TILE_SIZE);
-
-        // Tile 2: Yellow
-        ctx.fillStyle = `#${FACTION_COLORS.Yellow.toString(16).padStart(6, '0')}`;
-        ctx.fillRect(TILE_SIZE * 2, 0, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = '#999999';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(TILE_SIZE * 2, 0, TILE_SIZE, TILE_SIZE);
-
-        // Tile 3: Blue
-        ctx.fillStyle = `#${FACTION_COLORS.Blue.toString(16).padStart(6, '0')}`;
-        ctx.fillRect(TILE_SIZE * 3, 0, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = '#999999';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(TILE_SIZE * 3, 0, TILE_SIZE, TILE_SIZE);
-
-        // Tile 4: Pink
-        ctx.fillStyle = `#${FACTION_COLORS.Pink.toString(16).padStart(6, '0')}`;
-        ctx.fillRect(TILE_SIZE * 4, 0, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = '#999999';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(TILE_SIZE * 4, 0, TILE_SIZE, TILE_SIZE);
-
-        texture.refresh();
-        console.log('Tileset texture refreshed');
-    }
-
-    createTilemapFromData(tilemapData: { tiles: Array<{x: number, y: number, index: number, properties?: Record<string, any>}>; width: number; height: number; tileWidth: number; tileHeight: number }) {
-        const worldWidth = tilemapData.width * tilemapData.tileWidth;
-        const worldHeight = tilemapData.height * tilemapData.tileHeight;
-        this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
-        this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-
-        // Create tilemap with just the basic config (no layers yet)
-        const mapData = {
-            width: tilemapData.width,
-            height: tilemapData.height,
-            tileWidth: tilemapData.tileWidth,
-            tileHeight: tilemapData.tileHeight,
-            layers: [],
-            tilesets: [],
-            orientation: 'orthogonal',
-            renderorder: 'right-down'
-        } as any;
-
-        this.tilemap = this.make.tilemap({ data: mapData as any });
-        console.log('Tilemap created with dimensions:', tilemapData.width, 'x', tilemapData.height);
-        
-        // Add the generated tileset image
-        const tileset = this.tilemap.addTilesetImage('tileset', 'tileset', 32, 32, 0, 0);
-        console.log('Tileset added:', tileset);
-        
-        if (tileset) {
-            // Create a blank layer instead of trying to create from existing data
-            const layer = this.tilemap.createBlankLayer('terrain', tileset, 0, 0, tilemapData.width, tilemapData.height);
-            console.log('Layer created:', layer);
-            
-            if (layer) {
-                this.tilemapLayer = layer;
-                this.tilemapLayer.setDepth(0);
-                console.log('TilemapLayer assigned and set to depth 0');
-                
-                // Now populate the layer with tiles from server
-                tilemapData.tiles.forEach(tile => {
-                    this.tilemapLayer!.putTileAt(tile.index, tile.x, tile.y);
-                    
-                    // Set properties on the tile
-                    if (tile.properties) {
-                        const tileObject = this.tilemapLayer!.getTileAt(tile.x, tile.y, false);
-                        if (tileObject) {
-                            tileObject.properties = tile.properties;
-                        }
-                    }
-                });
-                console.log(`Populated ${tilemapData.tiles.length} tiles to tilemap layer`);
-            }
-        } else {
-            console.warn('Failed to add tileset image');
-        }
-
-        if (!this.tilemapLayer) {
-            console.warn('Failed to create tilemap layer');
-        }
-
-        this.fitWorldToViewport();
-    }
-
     fitWorldToViewport() {
-        if (!this.tilemap) return;
+        if (!this.gameMap.tilemap) return;
 
-        const worldWidth = this.tilemap.widthInPixels;
-        const worldHeight = this.tilemap.heightInPixels;
+        const worldWidth = this.gameMap.tilemap.widthInPixels;
+        const worldHeight = this.gameMap.tilemap.heightInPixels;
         const viewportWidth = this.scale.width;
         const viewportHeight = this.scale.height;
 
@@ -904,61 +768,5 @@ export class GameScene extends Phaser.Scene {
         // Prevent seeing outside map bounds on extra-wide/tall screens.
         const minZoomToFill = Math.max(viewportWidth / worldWidth, viewportHeight / worldHeight);
         this.cameras.main.setZoom(Math.max(1, minZoomToFill));
-    }
-
-
-    updateTileOnServer(x: number, y: number, index: number, properties?: Record<string, any>) {
-        if (!this.socket) return;
-        
-        this.socket.emit('tileUpdate', {
-            x,
-            y,
-            index,
-            properties
-        });
-    }
-
-    updateTilesOnServer(tilesData: Array<{x: number, y: number, index: number, properties?: Record<string, any>}>) {
-        if (!this.socket) return;
-        
-        this.socket.emit('tilesUpdate', tilesData);
-    }
-
-    claimTiles(tiles: Array<{x: number, y: number}>) {
-        if (!this.socket) return;
-        
-        this.socket.emit('claimTiles', tiles);
-    }
-
-    unclaimTiles(tiles: Array<{x: number, y: number}>) {
-        if (!this.socket) return;
-        
-        this.socket.emit('unclaimTiles', tiles);
-    }
-
-    getOwnedTiles(playerId: string): Array<{x: number, y: number}> {
-        const ownedTiles: Array<{x: number, y: number}> = [];
-        
-        if (!this.tilemapLayer) return ownedTiles;
-        
-        // Get all tiles in the layer and check their properties
-        const layer = this.tilemapLayer.layer;
-        for (let x = 0; x < layer.width; x++) {
-            for (let y = 0; y < layer.height; y++) {
-                const tile = this.tilemapLayer.getTileAt(x, y, false);
-                if (tile && tile.properties?.owner === playerId) {
-                    ownedTiles.push({ x, y });
-                }
-            }
-        }
-        
-        return ownedTiles;
-    }
-
-    getTileOwner(x: number, y: number): string | null {
-        if (!this.tilemapLayer) return null;
-        
-        const tile = this.tilemapLayer.getTileAt(x, y, false);
-        return tile?.properties?.owner || null;
     }
   }
