@@ -5,6 +5,7 @@ import { Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '../../server/events'
 import type { ScenePosition } from "./types";
 import type { GameInitData } from "../../server/server";
+import { preloadAvatarTextures } from "./utils/avatarLoader";
 
 export class GameScene extends Phaser.Scene {
     players: Map<string, PlayerSprite>;
@@ -52,7 +53,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     preload() {
-        // todo: add assets
+        // Return the promise so Phaser waits for avatars to load before create()
+        return preloadAvatarTextures(this);
     }
 
     create() {        

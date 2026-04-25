@@ -25,6 +25,13 @@ export default class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
         this.isCurrentPlayer = isCurrentPlayer;
         this.faction = playerData.faction;
         this.avatarKey = avatarKey;
+        
+        // Debug: Log texture info
+        const texture = scene.textures.get(avatarKey);
+        console.log(`Creating sprite with avatar key "${avatarKey}"`);
+        console.log(`Texture exists: ${texture && texture.key === avatarKey}`);
+        console.log(`Available textures:`, scene.textures.getTextureKeys().filter(k => k.includes('avatar') || k === avatarKey));
+        
         this.soundKey = playerData.sound;
 
         this.radius = 15;
