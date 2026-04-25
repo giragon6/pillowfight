@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/express": "^5.0.6",
+    "@types/socket.io": "^3.0.1",
+    "phaser": "^4.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
