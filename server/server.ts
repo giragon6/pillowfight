@@ -1,11 +1,12 @@
 import { GameManager } from "./GameManager";
 import type { PlayerData, PlayerJSON } from "../shared/types/playerTypes";
+import type { Faction } from "../shared/types/factions";
 import express from 'express';
 import type { ClientToServerEvents, ServerToClientEvents, SocketData, WagerRequestEvent } from "./events";
 import { Server } from 'socket.io';
 import http from 'http';
 import type { ScenePosition } from "../src/game/types";
-import type { TileData } from "./TilemapManager";
+import { TILE_INDICES, type TileData } from "./TilemapManager";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -27,7 +28,11 @@ const gameManager = new GameManager();
 
 // Spawn patch size for each player (5x5 by default)
 const SPAWN_PATCH_SIZE = 5;
-const pendingWagerRequests = new Map<string, WagerRequestEvent>();
+type PendingWagerRequest = WagerRequestEvent & {
+    requesterBetTiles: number;
+};
+
+const pendingWagerRequests = new Map<string, PendingWagerRequest>();
 const activeMinigames = new Map<
     string,
     {
@@ -35,6 +40,9 @@ const activeMinigames = new Map<
         minigameId: string;
         minigameName: string;
         players: [string, string];
+        playerFactions: Record<string, Faction>;
+        betByPlayer: Record<string, number>;
+        totalBetTiles: number;
         scores: Map<string, number>;
     }
 >();
@@ -45,6 +53,80 @@ function sanitizeBetTiles(value: number) {
 
 function isBetInAllowedRange(value: number) {
     return Number.isInteger(value) && value >= 5;
+}
+
+function getReferenceTile(playerId: string) {
+    const tilemap = gameManager.getTilemap();
+    const player = gameManager.getPlayer(playerId);
+
+    if (!player) {
+        return {
+            x: Math.floor(tilemap.width / 2),
+            y: Math.floor(tilemap.height / 2),
+        };
+    }
+
+    const x = Math.max(0, Math.min(tilemap.width - 1, Math.floor(player.x / tilemap.tileWidth)));
+    const y = Math.max(0, Math.min(tilemap.height - 1, Math.floor(player.y / tilemap.tileHeight)));
+    return { x, y };
+}
+
+function distanceFromReference(tile: TileData, ref: { x: number; y: number }) {
+    return (tile.x - ref.x) ** 2 + (tile.y - ref.y) ** 2;
+}
+
+function getLoserTilesToUnclaim(loserPlayerId: string, tileCount: number): Array<{ x: number; y: number }> {
+    if (tileCount <= 0) {
+        return [];
+    }
+
+    const loserRef = getReferenceTile(loserPlayerId);
+    const ownedTiles = gameManager.getTilesByOwner(loserPlayerId);
+    const maxRemovableTiles = Math.max(0, ownedTiles.length - 1);
+    const tilesToRemove = Math.min(tileCount, maxRemovableTiles);
+
+    if (tilesToRemove <= 0) {
+        return [];
+    }
+
+    return ownedTiles
+        .sort((a, b) => distanceFromReference(a, loserRef) - distanceFromReference(b, loserRef))
+        .slice(0, tilesToRemove)
+        .map((tile) => ({ x: tile.x, y: tile.y }));
+}
+
+function getEmptyTilesToClaim(winnerPlayerId: string, tileCount: number): Array<{ x: number; y: number }> {
+    if (tileCount <= 0) {
+        return [];
+    }
+
+    const winnerRef = getReferenceTile(winnerPlayerId);
+    return gameManager
+        .getTilemap()
+        .getAllTiles()
+        // Use tile index as the source of truth for emptiness to avoid
+        // overwriting colored territory when metadata is missing.
+        .filter((tile) => tile.index === TILE_INDICES.EMPTY)
+        .sort((a, b) => distanceFromReference(a, winnerRef) - distanceFromReference(b, winnerRef))
+        .slice(0, tileCount)
+        .map((tile) => ({ x: tile.x, y: tile.y }));
+}
+
+function ensurePlayerHasAtLeastOneTile(playerId: string, faction: Faction) {
+    const ownedTiles = gameManager.getTilesByOwner(playerId);
+    if (ownedTiles.length > 0) {
+        return;
+    }
+
+    const fallbackTile = getEmptyTilesToClaim(playerId, 1);
+    if (fallbackTile.length === 0) {
+        return;
+    }
+
+    const claimedTiles = gameManager.getTilemap().claimTiles(playerId, faction, fallbackTile);
+    if (claimedTiles.length > 0) {
+        io.emit('tilesClaimed', claimedTiles);
+    }
 }
 
 function removePlayerAndTerritory(playerId: string) {
@@ -220,13 +302,14 @@ io.on('connection', (socket) => {
         }
 
         const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const requestEvent: WagerRequestEvent = {
+        const requestEvent: PendingWagerRequest = {
             requestId,
             fromPlayerId: socket.id,
             fromUsername: sender.username,
             toPlayerId: data.toPlayerId,
             minigameId: data.minigameId,
             minigameName: data.minigameName,
+            requesterBetTiles,
         };
 
         pendingWagerRequests.set(requestId, requestEvent);
@@ -292,11 +375,27 @@ io.on('connection', (socket) => {
         io.to(pendingRequest.fromPlayerId).emit('wagerRequestResult', result);
         io.to(pendingRequest.toPlayerId).emit('wagerRequestResult', result);
 
+        const fromPlayer = gameManager.getPlayer(pendingRequest.fromPlayerId);
+        const toPlayer = gameManager.getPlayer(pendingRequest.toPlayerId);
+        if (!fromPlayer || !toPlayer) {
+            pendingWagerRequests.delete(data.requestId);
+            return;
+        }
+
         const session = {
             requestId: pendingRequest.requestId,
             minigameId: pendingRequest.minigameId,
             minigameName: pendingRequest.minigameName,
             players: [pendingRequest.fromPlayerId, pendingRequest.toPlayerId] as [string, string],
+            playerFactions: {
+                [pendingRequest.fromPlayerId]: fromPlayer.faction,
+                [pendingRequest.toPlayerId]: toPlayer.faction,
+            },
+            betByPlayer: {
+                [pendingRequest.fromPlayerId]: pendingRequest.requesterBetTiles,
+                [pendingRequest.toPlayerId]: responderBetTiles,
+            },
+            totalBetTiles: pendingRequest.requesterBetTiles + responderBetTiles,
             scores: new Map<string, number>(),
         };
 
@@ -342,6 +441,36 @@ io.on('connection', (socket) => {
             winnerPlayerId = session.players[0];
         } else if (playerTwoScore > playerOneScore) {
             winnerPlayerId = session.players[1];
+        }
+
+        if (winnerPlayerId) {
+            const loserPlayerId = session.players.find((playerId) => playerId !== winnerPlayerId);
+            if (loserPlayerId) {
+                const loserBetTiles = session.betByPlayer[loserPlayerId] ?? 0;
+                const loserTilesToUnclaim = getLoserTilesToUnclaim(loserPlayerId, loserBetTiles);
+                if (loserTilesToUnclaim.length > 0) {
+                    const unclaimedTiles = gameManager.unclaimTiles(loserTilesToUnclaim);
+                    if (unclaimedTiles.length > 0) {
+                        io.emit('tilesUnclaimed', unclaimedTiles);
+                    }
+                }
+
+                const loserFaction = session.playerFactions[loserPlayerId];
+                if (loserFaction) {
+                    ensurePlayerHasAtLeastOneTile(loserPlayerId, loserFaction);
+                }
+            }
+
+            const awardCoordinates = getEmptyTilesToClaim(winnerPlayerId, session.totalBetTiles);
+            if (awardCoordinates.length > 0) {
+                const winnerFaction = session.playerFactions[winnerPlayerId];
+                const awardedTiles = winnerFaction
+                    ? gameManager.getTilemap().claimTiles(winnerPlayerId, winnerFaction, awardCoordinates)
+                    : [];
+                if (awardedTiles.length > 0) {
+                    io.emit('tilesClaimed', awardedTiles);
+                }
+            }
         }
 
         const completedEvent = {
