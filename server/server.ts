@@ -55,6 +55,10 @@ function isBetInAllowedRange(value: number) {
     return Number.isInteger(value) && value >= 5;
 }
 
+function getOwnedTileCount(playerId: string) {
+    return gameManager.getTilesByOwner(playerId).length;
+}
+
 function getReferenceTile(playerId: string) {
     const tilemap = gameManager.getTilemap();
     const player = gameManager.getPlayer(playerId);
@@ -277,6 +281,7 @@ io.on('connection', (socket) => {
         const sender = gameManager.getPlayer(socket.id);
         const recipientSocket = io.sockets.sockets.get(data.toPlayerId);
         const requesterBetTiles = sanitizeBetTiles(data.betTiles);
+        const requesterOwnedTiles = getOwnedTileCount(socket.id);
 
         if (!sender || !recipientSocket || data.toPlayerId === socket.id) {
             console.log('Wager request dropped:', {
@@ -297,6 +302,19 @@ io.on('connection', (socket) => {
                 minigameId: data.minigameId,
                 minigameName: data.minigameName,
                 reason: 'Your wager must be a whole number and minimum 5.',
+            });
+            return;
+        }
+
+        if (requesterBetTiles > requesterOwnedTiles) {
+            socket.emit('wagerRequestResult', {
+                requestId: '',
+                fromPlayerId: socket.id,
+                toPlayerId: data.toPlayerId,
+                accepted: false,
+                minigameId: data.minigameId,
+                minigameName: data.minigameName,
+                reason: `You can bet at most ${requesterOwnedTiles} tiles right now.`,
             });
             return;
         }
@@ -350,6 +368,7 @@ io.on('connection', (socket) => {
         }
 
         const responderBetTiles = sanitizeBetTiles(data.betTiles ?? 0);
+        const responderOwnedTiles = getOwnedTileCount(socket.id);
         if (!isBetInAllowedRange(responderBetTiles)) {
             socket.emit('wagerRequestResult', {
                 requestId: pendingRequest.requestId,
@@ -359,6 +378,19 @@ io.on('connection', (socket) => {
                 minigameId: pendingRequest.minigameId,
                 minigameName: pendingRequest.minigameName,
                 reason: 'Your bet must be a whole number and minimum 5.',
+            });
+            return;
+        }
+
+        if (responderBetTiles > responderOwnedTiles) {
+            socket.emit('wagerRequestResult', {
+                requestId: pendingRequest.requestId,
+                fromPlayerId: pendingRequest.fromPlayerId,
+                toPlayerId: pendingRequest.toPlayerId,
+                accepted: false,
+                minigameId: pendingRequest.minigameId,
+                minigameName: pendingRequest.minigameName,
+                reason: `You can bet at most ${responderOwnedTiles} tiles right now.`,
             });
             return;
         }
