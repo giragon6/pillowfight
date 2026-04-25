@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser';
 
-// Dynamically import all avatar images from the avatars directory
+// Dynamically import all avatar
 const avatarModules = import.meta.glob<{ default: string }>(
-  '../../assets/avatars/**/*.{png,jpg,jpeg,gif,svg}',
+  '../../assets/avatar/**/*.{png,jpg,jpeg,gif,svg}',
   { eager: true, import: 'default' }
 );
 
@@ -11,11 +11,6 @@ export interface AvatarAsset {
   url: string;
 }
 
-/**
- * Gets all available avatar assets
- * Expects avatar files to be in src/assets/avatars/
- * File names will be converted to keys (e.g., meme1.png -> meme1)
- */
 export function getAvatarAssets(): AvatarAsset[] {
   return Object.entries(avatarModules).map(([path, moduleData]) => {
     const filename = path.split('/').pop() || '';
@@ -26,11 +21,6 @@ export function getAvatarAssets(): AvatarAsset[] {
   });
 }
 
-/**
- * Preloads all avatar textures into a Phaser scene
- * Creates canvas textures from loaded images to work properly with Vite
- * Resizes all avatars to 160x160
- */
 export async function preloadAvatarTextures(scene: Phaser.Scene, size = 160): Promise<void> {
   const avatars = getAvatarAssets();
   console.log("preloading avatars:", avatars.length);
