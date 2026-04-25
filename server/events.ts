@@ -69,6 +69,7 @@ export interface ServerToClientEvents {
     wagerRequestResult: (data: WagerResultEvent) => void;
     minigameStarted: (data: MinigameStartedEvent) => void;
     minigameCompleted: (data: MinigameCompletedEvent) => void;
+    sendMinigameInteraction: (playerId: string, data: any) => void;
 }
 
 export interface ClientToServerEvents {
@@ -82,7 +83,14 @@ export interface ClientToServerEvents {
     sendWagerRequest: (data: WagerRequestPayload) => void;
     sendWagerResponse: (data: WagerResponsePayload) => void;
     submitMinigameScore: (data: MinigameScorePayload) => void;
+    completeMinigameInteraction: (minigameInstId: string, myPlayerId: string, data: any) => void;
 }
+
+// server should have a map of minigameInstIds to playerIds (player1 and player2)
+// on receive completeMinigameInteraction, look up the other player's (not myPlayerId) id and emit sendMinigameInteraction with that id and the data it received
+// on client receive sendMinigameInteraction, call the update(data) func (or similar) of the mingame inst (include this in the abstract class)
+// at the end of the update method, minigame needs to either sendMinigameInteraction or emit minigameCompleted
+// upon reception of minigameCompleted, server should remove minigameInst from the map (so add minigameInstId to minigameCompletedEvent too if not alr there)
 
 export interface SocketData {
 
