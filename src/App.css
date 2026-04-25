@@ -157,6 +157,26 @@
   pointer-events: none;
 }
 
+.avatar-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  border: 1px solid rgba(95, 45, 104, 0.2);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.avatar-choice input:checked + .avatar-preview {
+  border-color: #7a3a82;
+  border-width: 3px;
+  transform: translateY(-1px);
+}
+
+.avatar-choice:hover .avatar-preview {
+  border-color: #7a3f84;
+}
+
 .avatar-slot {
   display: block;
   width: 100%;

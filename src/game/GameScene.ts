@@ -1,4 +1,6 @@
+import * as Phaser from "phaser";
 import PlayerSprite from "./player/PlayerSprite";
+import { TileMapManager } from "./map/TileMapManager";
 import { Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '../../server/events'
 import type { ScenePosition } from "./types";
@@ -17,6 +19,7 @@ export class GameScene extends Phaser.Scene {
         D: Phaser.Input.Keyboard.Key;
     } | null;
     playerGroup: Phaser.Physics.Arcade.Group | null;
+    tileMapManager: TileMapManager | null;
 
     //Click to move
     targetPosition: ScenePosition | null;
@@ -34,6 +37,7 @@ export class GameScene extends Phaser.Scene {
 
         this.wasd = null;
         this.playerGroup = null;
+        this.tileMapManager = null;
         
         // Click-to-move properties
         this.targetPosition = null;
@@ -79,6 +83,9 @@ export class GameScene extends Phaser.Scene {
     setupSocketListeners() {
         this.socket!.on('gameInit', (data: GameInitData) => {
             console.log('Game initialized:', data);
+            
+            // Initialize tilemap
+            this.tileMapManager = new TileMapManager(this, 150, 150);
             
             // Create current player with custom data
             this.currentPlayer = new PlayerSprite(this, data.player.x, data.player.y, data.playerId, true, data.playerData);
@@ -131,6 +138,37 @@ export class GameScene extends Phaser.Scene {
                 player.destroy();
                 this.players.delete(playerId);
             }
+        });
+
+        this.socket!.on('tileUpdated', (data) => {
+            if (!this.tileMapManager) return;
+            const { x, y, faction, owner, contents } = data;
+            
+            if (faction !== undefined) {
+                this.tileMapManager.setFaction(x, y, faction);
+            }
+            if (owner !== undefined) {
+                this.tileMapManager.setOwner(x, y, owner);
+            }
+            if (contents !== undefined) {
+                this.tileMapManager.setContents(x, y, contents);
+            }
+        });
+
+        this.socket!.on('tilesUpdated', (tiles: Array<{x: number, y: number, faction?: string, owner?: string, contents?: any[]}>) => {
+            if (!this.tileMapManager) return;
+            tiles.forEach(tileData => {
+                const { x, y, faction, owner, contents } = tileData;
+                if (faction !== undefined) {
+                    this.tileMapManager!.setFaction(x, y, faction as any);
+                }
+                if (owner !== undefined) {
+                    this.tileMapManager!.setOwner(x, y, owner);
+                }
+                if (contents !== undefined) {
+                    this.tileMapManager!.setContents(x, y, contents);
+                }
+            });
         });
     }
 
@@ -213,7 +251,7 @@ export class GameScene extends Phaser.Scene {
 
     checkPlayerClick(worldX: number, worldY: number) {
         // Check if click position is near any player
-        for (let [playerId, player] of this.players) {
+        for (const player of this.players.values()) {
             const distance = Phaser.Math.Distance.Between(worldX, worldY, player.x, player.y);
             if (distance <= 40) { // 40 pixel radius for clicking on players
                 return player;
@@ -222,7 +260,7 @@ export class GameScene extends Phaser.Scene {
         return null;
     }
 
-    showClickIndicator(x: number, y: number) {
+    showClickIndicator(_x: number, _y: number) {
         //TODO: fix ts
         // if (!this.clickIndicator) return;
         // this.clickIndicator.clear();

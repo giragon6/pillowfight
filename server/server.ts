@@ -1,4 +1,5 @@
 import { GameManager } from "./GameManager";
+import { ServerTileMapManager } from "./ServerTileMapManager";
 import type { PlayerData, PlayerJSON } from "../shared/types/playerTypes";
 import express from 'express';
 import type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./events";
@@ -20,9 +21,32 @@ const io = new Server<
 });
 
 const gameManager = new GameManager();
+const tileMapManager = new ServerTileMapManager(150, 150); // Match client dimensions
 
 //todo: move this
 export type GameInitData = {playerId: string, player: PlayerJSON, playerData: PlayerData, players: PlayerJSON[]};
+
+// Set up tile change callbacks to emit to all connected clients
+tileMapManager.onTileChange((x, y, tile) => {
+    io.emit('tileUpdated', {
+        x,
+        y,
+        faction: tile.faction,
+        owner: tile.owner,
+        contents: tile.contents,
+    });
+});
+
+tileMapManager.onBatchChange((changes) => {
+    const tilesData = changes.map(({x, y, tile}) => ({
+        x,
+        y,
+        faction: tile.faction,
+        owner: tile.owner,
+        contents: tile.contents,
+    }));
+    io.emit('tilesUpdated', tilesData);
+});
 
 io.on('connection', (socket) => {
     console.log('New player connected:', socket.id);
