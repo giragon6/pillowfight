@@ -375,6 +375,7 @@ export class GameScene extends Phaser.Scene {
 
     openOutgoingWagerModal(targetPlayer: PlayerSprite) {
         const minigame = pickRandomMinigame();
+        const myTileCount = this.currentPlayer ? this.getOwnedTiles(this.currentPlayer.playerId).length : 0;
 
         const bodyCopy = `${targetPlayer.playerName}, wanna settle this with ${minigame.name}?`;
 
@@ -382,13 +383,14 @@ export class GameScene extends Phaser.Scene {
         betInput.className = 'wager-bet-input';
         betInput.type = 'number';
         betInput.min = '5';
+        betInput.max = String(myTileCount);
         betInput.step = '1';
-        betInput.value = '10';
+        betInput.value = String(Math.min(10, Math.max(5, myTileCount)));
         betInput.placeholder = 'Bet tiles';
 
         const helperText = document.createElement('p');
         helperText.className = 'wager-helper-text';
-        helperText.textContent = 'Minimum bet is 5 tiles.';
+        helperText.textContent = `Minimum bet is 5 tiles. You have ${myTileCount}.`;
 
         this.openWagerModal({
             pill: 'Sleepover Challenge',
@@ -398,9 +400,14 @@ export class GameScene extends Phaser.Scene {
             primaryLabel: 'Send Request',
             secondaryLabel: 'Maybe Later',
             onPrimary: () => {
+                if (myTileCount < 5) {
+                    helperText.textContent = 'You need at least 5 tiles to place a bet.';
+                    return;
+                }
+
                 const betTiles = Math.floor(Number(betInput.value));
-                if (!Number.isInteger(betTiles) || betTiles < 5) {
-                    helperText.textContent = 'Minimum bet is 5 tiles.';
+                if (!Number.isInteger(betTiles) || betTiles < 5 || betTiles > myTileCount) {
+                    helperText.textContent = `Bet must be between 5 and ${myTileCount}.`;
                     return;
                 }
 
@@ -421,18 +428,20 @@ export class GameScene extends Phaser.Scene {
 
     openIncomingWagerModal(request: WagerRequestEvent) {
         const bodyCopy = `${request.fromUsername} challenged you to ${request.minigameName}.`;
+        const myTileCount = this.currentPlayer ? this.getOwnedTiles(this.currentPlayer.playerId).length : 0;
 
         const betInput = document.createElement('input');
         betInput.className = 'wager-bet-input';
         betInput.type = 'number';
         betInput.min = '5';
+        betInput.max = String(myTileCount);
         betInput.step = '1';
-        betInput.value = '10';
+        betInput.value = String(Math.min(10, Math.max(5, myTileCount)));
         betInput.placeholder = 'Your hidden bet';
 
         const helperText = document.createElement('p');
         helperText.className = 'wager-helper-text';
-        helperText.textContent = 'Minimum bet is 5 tiles.';
+        helperText.textContent = `Minimum bet is 5 tiles. You have ${myTileCount}.`;
 
         this.openWagerModal({
             pill: 'Incoming Wager',
@@ -442,9 +451,14 @@ export class GameScene extends Phaser.Scene {
             primaryLabel: 'Yes, Let\'s Play',
             secondaryLabel: 'No Thanks',
             onPrimary: () => {
+                if (myTileCount < 5) {
+                    helperText.textContent = 'You need at least 5 tiles to place a bet.';
+                    return;
+                }
+
                 const betTiles = Math.floor(Number(betInput.value));
-                if (!Number.isInteger(betTiles) || betTiles < 5) {
-                    helperText.textContent = 'Minimum bet is 5 tiles.';
+                if (!Number.isInteger(betTiles) || betTiles < 5 || betTiles > myTileCount) {
+                    helperText.textContent = `Bet must be between 5 and ${myTileCount}.`;
                     return;
                 }
 
