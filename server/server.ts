@@ -194,6 +194,9 @@ io.on('connection', (socket) => {
             }
         }
                 
+        // remove claims
+        gameManager.unclaimTiles(gameManager.getTilemap().getTilesByOwner(socket.id));
+                
         // Remove player and broadcast
         gameManager.removePlayer(socket.id);
         socket.broadcast.emit('playerLeft', socket.id);
