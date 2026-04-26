@@ -39,11 +39,11 @@ export const MINIGAMES: MinigameDefinition[] = [
 		name: 'Tug of War',
 		description: ''
 	},
-	{
-		id: 'tri',
-		name: 'Trivia',
-		description: ''
-	}
+	// {
+	// 	id: 'tri',
+	// 	name: 'Trivia',
+	// 	description: ''
+	// }
 ];
 
 export const MINIGAME_SCENES: Record<string, typeof MinigameScene> = {
