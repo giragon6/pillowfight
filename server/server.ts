@@ -34,6 +34,65 @@ const io = new Server<
 
 const gameManager = new GameManager();
 
+function buildFactionLeaderboard() {
+    const counts = {
+        Lavender: 0,
+        Yellow: 0,
+        Blue: 0,
+        Pink: 0,
+    };
+    const characterCounts = new Map<string, number>();
+
+    const allTiles = gameManager.getTilemap().getAllTiles();
+    allTiles.forEach((tile) => {
+        if (tile.index === TILE_INDICES.LAVENDER) counts.Lavender += 1;
+        if (tile.index === TILE_INDICES.YELLOW) counts.Yellow += 1;
+        if (tile.index === TILE_INDICES.BLUE) counts.Blue += 1;
+        if (tile.index === TILE_INDICES.PINK) counts.Pink += 1;
+
+        if (tile.index > TILE_INDICES.EMPTY) {
+            const ownerId = tile.properties?.owner as string | undefined;
+            if (ownerId) {
+                const avatarKey = gameManager.getPlayer(ownerId)?.avatar ?? 'Unknown';
+                characterCounts.set(avatarKey, (characterCounts.get(avatarKey) ?? 0) + 1);
+            }
+        }
+    });
+
+    const claimedTiles = counts.Lavender + counts.Yellow + counts.Blue + counts.Pink;
+    const factions = (Object.entries(counts) as Array<[Faction, number]>)
+        .map(([faction, tiles]) => ({
+            faction,
+            tiles,
+            percentage: claimedTiles === 0 ? 0 : Number(((tiles / claimedTiles) * 100).toFixed(2)),
+        }))
+        .sort((a, b) => b.tiles - a.tiles);
+    const characters = Array.from(characterCounts.entries())
+        .map(([avatarKey, tiles]) => ({
+            avatarKey,
+            tiles,
+            percentage: claimedTiles === 0 ? 0 : Number(((tiles / claimedTiles) * 100).toFixed(2)),
+        }))
+        .sort((a, b) => b.tiles - a.tiles);
+
+    return {
+        claimedTiles,
+        totalTiles: allTiles.length,
+        factions,
+        characters,
+        updatedAt: Date.now(),
+    };
+}
+
+app.get('/api/leaderboard', (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json(buildFactionLeaderboard());
+});
+
+app.get('/leaderboard', (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+});
+
 // Spawn patch size for each player (5x5 by default)
 const SPAWN_PATCH_SIZE = 5;
 type PendingWagerRequest = WagerRequestEvent & {

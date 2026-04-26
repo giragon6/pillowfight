@@ -232,6 +232,163 @@
   box-shadow: 0 8px 20px rgba(69, 21, 83, 0.2);
 }
 
+.leaderboard-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid rgba(119, 57, 128, 0.35);
+  background: linear-gradient(160deg, #fff6fd 0%, #f4e7ff 100%);
+  box-shadow: 0 10px 20px rgba(66, 20, 84, 0.3);
+  cursor: pointer;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.leaderboard-fab:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.leaderboard-fab:active {
+  transform: translateY(1px);
+}
+
+.leaderboard-fab-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(90, 46, 103, 0.55);
+  background: conic-gradient(
+    #b497bd 0% 25%,
+    #f7e967 25% 50%,
+    #4da6ff 50% 75%,
+    #ff8fc0 75% 100%
+  );
+}
+
+.leaderboard-overlay {
+  z-index: 9998;
+}
+
+.leaderboard-card {
+  width: min(940px, 100%);
+}
+
+.leaderboard-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.leaderboard-top-row .wager-modal-pill {
+  margin-bottom: 0;
+}
+
+.leaderboard-open-tab-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5a2e67;
+  text-decoration: none;
+  border: 1px solid rgba(110, 49, 98, 0.32);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.leaderboard-open-tab-link:hover {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.leaderboard-leader {
+  margin-bottom: 12px;
+}
+
+.leaderboard-section-title {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  color: #542a61;
+}
+
+.leaderboard-split-wrap {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.leaderboard-panel {
+  border-radius: 14px;
+  border: 1px solid rgba(95, 45, 104, 0.18);
+  background: rgba(255, 255, 255, 0.45);
+  padding: 12px;
+}
+
+.leaderboard-panel .leaderboard-pie-chart {
+  width: min(220px, 42vw);
+  margin-bottom: 12px;
+}
+
+.leaderboard-pie-chart {
+  width: min(260px, 72vw);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  border: 1px solid rgba(95, 45, 104, 0.24);
+  box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.42);
+}
+
+.leaderboard-legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.leaderboard-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #542a61;
+  font-family: 'Trebuchet MS', 'Verdana', sans-serif;
+}
+
+.leaderboard-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(90, 46, 103, 0.28);
+  flex: 0 0 14px;
+}
+
+.leaderboard-legend-text {
+  font-size: 0.95rem;
+}
+
+.leaderboard-character-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(90, 46, 103, 0.28);
+  object-fit: cover;
+  background: #f5edf9;
+}
+
+.leaderboard-close-button {
+  width: 100%;
+  margin-top: 16px;
+}
+
 @media (max-width: 640px) {
   .wager-modal-card {
     padding: 14px;
@@ -260,5 +417,17 @@
   .minigame-smash-image {
     width: min(92vw, 700px);
     height: 52vh;
+  }
+
+  .leaderboard-fab {
+    right: 14px;
+    bottom: 14px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .leaderboard-split-wrap {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
