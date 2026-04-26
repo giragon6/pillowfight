@@ -69,7 +69,8 @@ export interface ServerToClientEvents {
     wagerRequestResult: (data: WagerResultEvent) => void;
     minigameStarted: (data: MinigameStartedEvent) => void;
     minigameCompleted: (data: MinigameCompletedEvent) => void;
-    sendMinigameInteraction: (playerId: string, data: any) => void;
+
+    minigameInteracted: (requestId: string, data: any) => void;
 }
 
 export interface ClientToServerEvents {
@@ -83,7 +84,8 @@ export interface ClientToServerEvents {
     sendWagerRequest: (data: WagerRequestPayload) => void;
     sendWagerResponse: (data: WagerResponsePayload) => void;
     submitMinigameScore: (data: MinigameScorePayload) => void;
-    completeMinigameInteraction: (minigameInstId: string, myPlayerId: string, data: any) => void;
+
+    minigameInteraction: (requestId: string, data: any) => void;
 }
 
 // server should have a map of minigameInstIds to playerIds (player1 and player2)

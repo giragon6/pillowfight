@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import headerImage from './assets/homepage/pillow-fight-header.png'
+import headerImage from './assets/homepage/pillowfight-title.png'
 import { setupGame } from './game/setupGame'
 import { getAvatarAssets } from './game/utils/avatarLoader'
 import type { PlayerData } from '../shared/types/playerTypes'
