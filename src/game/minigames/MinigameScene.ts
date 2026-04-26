@@ -1,12 +1,15 @@
 import * as Phaser from 'phaser';
 import type { GameScene } from '../GameScene';
+import type { Minigame } from './Minigame';
 
 export abstract class MinigameScene extends Phaser.Scene {
+    minigame: Minigame;
 	gameScene: GameScene;
 
-	constructor(key: string, gameScene: GameScene) {
+	constructor(key: string, gameScene: GameScene, minigame: Minigame) {
 		super({ key });
         this.gameScene = gameScene;
+        this.minigame = minigame;
 	}
 
 	create() {
