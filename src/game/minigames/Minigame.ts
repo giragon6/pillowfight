@@ -8,9 +8,9 @@ export type MinigameDefinition = {
 
 export const SLEEPOVER_MINIGAMES: MinigameDefinition[] = [
 	{
-		id: 'tow',
-		name: 'Tug of War',
-		description: 'Click as fast as you can.',
+		id: 'pillow-smash',
+		name: 'Pillow Smash',
+		description: 'Click the pillow as fast as you can for 5 seconds. Highest clicks wins.',
 	},
 ];
 

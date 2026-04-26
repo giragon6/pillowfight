@@ -12,8 +12,12 @@ import type {
     WagerResultEvent,
 } from '../../server/events'
 import { pickRandomMinigame } from "./minigames/Minigame";
+import { getMinigameUiConfig } from "./minigames/pillowSmash/pillowSmashConfig";
 import './minigames/wagerModal.css'
 import { GameMap } from "../tilemap/GameMap";
+
+const pillowSmashImage = new URL('./minigames/pillowSmash/pillow.jpg', import.meta.url).href;
+const pillowSmashImageFallback = '/src/game/minigames/pillowSmash/pillow.jpg';
 
 export class GameScene extends Phaser.Scene {
     players: Map<string, PlayerSprite>;
@@ -602,49 +606,100 @@ export class GameScene extends Phaser.Scene {
         this.currentMinigameRequestId = event.requestId;
         this.currentMinigameScore = 0;
         this.hasSubmittedMinigameScore = false;
+        const minigameUi = getMinigameUiConfig(event.minigameId);
 
         const overlay = document.createElement('div');
-        overlay.className = 'wager-modal-overlay';
+        overlay.className = 'wager-modal-overlay minigame-overlay-fullscreen';
+        overlay.style.padding = '0';
 
         const card = document.createElement('section');
-        card.className = 'wager-modal-card minigame-card';
+        card.className = 'wager-modal-card minigame-card minigame-fullscreen-card';
+        // Force large full-screen gameplay card even if CSS is stale/overridden.
+        card.style.width = '96vw';
+        card.style.maxWidth = '1400px';
+        card.style.minHeight = '92vh';
+        card.style.padding = 'clamp(24px, 3.2vw, 44px)';
+        card.style.borderRadius = '28px';
+
+        if (window.innerWidth <= 640) {
+            card.style.width = '100vw';
+            card.style.maxWidth = '100vw';
+            card.style.minHeight = '100vh';
+            card.style.borderRadius = '0';
+            card.style.padding = '16px';
+        }
 
         const pill = document.createElement('span');
         pill.className = 'wager-modal-pill';
-        pill.textContent = 'Minigame Live';
+        pill.textContent = minigameUi.pillText;
 
         const title = document.createElement('h2');
         title.className = 'wager-modal-title';
         title.textContent = `${event.minigameName} vs ${opponentName}`;
 
         const copy = document.createElement('p');
-        copy.className = 'wager-modal-copy';
-        copy.textContent = 'Tap as fast as you can for 5 seconds. Highest taps wins the pillow fight.';
+        copy.className = 'wager-modal-copy minigame-subtitle';
+        copy.textContent = minigameUi.instructions;
 
-        const timerText = document.createElement('p');
-        timerText.className = 'minigame-timer';
+        const hud = document.createElement('div');
+        hud.className = 'minigame-hud';
+
+        const timerText = document.createElement('div');
+        timerText.className = 'minigame-hud-item minigame-timer';
         timerText.textContent = 'Time left: 5.0s';
 
-        const scoreText = document.createElement('p');
-        scoreText.className = 'minigame-score';
+        const scoreText = document.createElement('div');
+        scoreText.className = 'minigame-hud-item minigame-score';
         scoreText.textContent = 'Your score: 0';
 
-        const tapButton = document.createElement('button');
-        tapButton.type = 'button';
-        tapButton.className = 'wager-button wager-button-primary minigame-button';
-        tapButton.textContent = 'Swing Pillow';
-        tapButton.onclick = () => {
+        hud.appendChild(timerText);
+        hud.appendChild(scoreText);
+
+        const progressTrack = document.createElement('div');
+        progressTrack.className = 'minigame-progress-track';
+        const progressFill = document.createElement('div');
+        progressFill.className = 'minigame-progress-fill';
+        progressTrack.appendChild(progressFill);
+
+        const smashTarget = document.createElement('img');
+        smashTarget.className = 'minigame-smash-image';
+        smashTarget.alt = 'Pillow Smash target';
+        smashTarget.draggable = false;
+        smashTarget.loading = 'eager';
+        smashTarget.decoding = 'sync';
+        smashTarget.src = pillowSmashImageFallback;
+        smashTarget.onerror = () => {
+            // Fallback to module-resolved URL if direct source path fails.
+            smashTarget.onerror = null;
+            smashTarget.src = pillowSmashImage;
+        };
+        smashTarget.onclick = () => {
             if (this.hasSubmittedMinigameScore) return;
             this.currentMinigameScore += 1;
             scoreText.textContent = `Your score: ${this.currentMinigameScore}`;
+            smashTarget.classList.remove('smash-hit');
+            // Restart short animation on rapid taps.
+            void smashTarget.offsetWidth;
+            smashTarget.classList.add('smash-hit');
         };
+
+        const arena = document.createElement('div');
+        arena.className = 'minigame-arena';
+        arena.appendChild(smashTarget);
 
         card.appendChild(pill);
         card.appendChild(title);
         card.appendChild(copy);
-        card.appendChild(timerText);
-        card.appendChild(scoreText);
-        card.appendChild(tapButton);
+        card.appendChild(hud);
+        card.appendChild(progressTrack);
+        card.appendChild(arena);
+
+        // Safety guard: if any stale button node is injected, remove it so
+        // Pillow Smash only uses the pillow picture as the clickable target.
+        card.querySelectorAll('button').forEach((buttonNode) => {
+            buttonNode.remove();
+        });
+
         overlay.appendChild(card);
 
         document.body.appendChild(overlay);
@@ -655,13 +710,17 @@ export class GameScene extends Phaser.Scene {
             const elapsedMs = Date.now() - startedAt;
             const remainingMs = Math.max(0, 5000 - elapsedMs);
             timerText.textContent = `Time left: ${(remainingMs / 1000).toFixed(1)}s`;
+            const elapsedRatio = Math.min(1, elapsedMs / 5000);
+            progressFill.style.width = `${(1 - elapsedRatio) * 100}%`;
         }, 100);
 
         this.activeMinigameDurationTimer = window.setTimeout(() => {
             this.submitMinigameScore();
-            tapButton.disabled = true;
-            tapButton.textContent = 'Waiting For Opponent...';
+            smashTarget.classList.add('smash-disabled');
+            smashTarget.style.pointerEvents = 'none';
+            smashTarget.title = minigameUi.waitingLabel;
             timerText.textContent = 'Time left: 0.0s';
+            progressFill.style.width = '0%';
         }, 5000);
     }
 
