@@ -7,16 +7,14 @@ import type { GameInitData } from "../../server/server";
 import { preloadAvatarTextures } from "./utils/avatarLoader";
 import { getAvatarAssets } from "./utils/avatarLoader";
 import type {
-    MinigameCompletedEvent,
-    MinigameStartedEvent,
     WagerRequestEvent,
     WagerResultEvent,
 } from '../../server/events'
-import { pickRandomMinigame, type MinigameDefinition } from "./minigames/Minigame";
-import { getMinigameUiConfig } from "./minigames/pillowSmash/pillowSmashConfig";
+import { pickRandomMinigame } from "./minigames/Minigame";
 import './minigames/wagerModal.css'
 import { GameMap } from "../tilemap/GameMap";
 import FACTION_COLORS from "../../shared/factionColors";
+import MinigameManager from "./minigames/MinigameManager";
 
 const pillowSmashImage = new URL('./minigames/pillowSmash/pillow.jpg', import.meta.url).href;
 const pillowSmashImageFallback = '/src/game/minigames/pillowSmash/pillow.jpg';
@@ -45,16 +43,11 @@ export class GameScene extends Phaser.Scene {
     activeWagerModal: HTMLDivElement | null;
     activeWagerToast: HTMLDivElement | null;
     activeToastTimeout: number | null;
-    activeMinigameModal: HTMLDivElement | null;
-    activeMinigameTimer: number | null;
-    activeMinigameDurationTimer: number | null;
-    currentMinigameScore: number;
-    currentMinigameRequestId: string | null;
-    hasSubmittedMinigameScore: boolean;
+
     activeLeaderboardButton: HTMLButtonElement | null;
     activeLeaderboardModal: HTMLDivElement | null;
     gameMap: GameMap;
-
+    minigameManager: MinigameManager | null = null;
     
     constructor() {
         super({ key: 'GameScene' });
@@ -76,12 +69,6 @@ export class GameScene extends Phaser.Scene {
         this.activeWagerModal = null;
         this.activeWagerToast = null;
         this.activeToastTimeout = null;
-        this.activeMinigameModal = null;
-        this.activeMinigameTimer = null;
-        this.activeMinigameDurationTimer = null;
-        this.currentMinigameScore = 0;
-        this.currentMinigameRequestId = null;
-        this.hasSubmittedMinigameScore = false;
         this.activeLeaderboardButton = null;
         this.activeLeaderboardModal = null;
 
@@ -91,6 +78,7 @@ export class GameScene extends Phaser.Scene {
     initialize(socket: Socket<ServerToClientEvents, ClientToServerEvents>) {
         this.socket = socket;
         this.setupSocketListeners();
+        this.minigameManager = new MinigameManager(this);
     }
 
     preload() {
@@ -125,7 +113,7 @@ export class GameScene extends Phaser.Scene {
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
             this.closeWagerModal();
             this.clearWagerToast();
-            this.closeMinigameModal();
+            this.minigameManager!.closeMinigameModal();
             this.closeLeaderboardModal();
             this.removeLeaderboardButton();
         });
@@ -247,14 +235,6 @@ export class GameScene extends Phaser.Scene {
 
         this.socket!.on('wagerRequestResult', (result) => {
             this.handleWagerResult(result);
-        });
-
-        this.socket!.on('minigameStarted', (event) => {
-            this.openMinigameModal(event);
-        });
-
-        this.socket!.on('minigameCompleted', (event) => {
-            this.handleMinigameCompleted(event);
         });
     }
 
@@ -604,219 +584,6 @@ export class GameScene extends Phaser.Scene {
         if (!this.activeWagerToast) return;
         this.activeWagerToast.remove();
         this.activeWagerToast = null;
-    }
-
-    openMinigameModal(event: MinigameStartedEvent) {
-        if (!this.currentPlayer) return;
-        if (!event.playerIds.includes(this.currentPlayer.playerId)) return;
-
-        this.closeMinigameModal();
-
-        const opponentId = event.playerIds.find((id) => id !== this.currentPlayer!.playerId) ?? '';
-        const opponentName = this.players.get(opponentId)?.playerName ?? 'Opponent';
-
-        this.currentMinigameRequestId = event.requestId;
-        this.currentMinigameScore = 0;
-        this.hasSubmittedMinigameScore = false;
-        const minigameUi = getMinigameUiConfig(event.minigameId);
-
-        const overlay = document.createElement('div');
-        overlay.className = 'wager-modal-overlay minigame-overlay-fullscreen';
-        overlay.style.padding = '0';
-
-        const card = document.createElement('section');
-        card.className = 'wager-modal-card minigame-card minigame-fullscreen-card';
-        // Force large full-screen gameplay card even if CSS is stale/overridden.
-        card.style.width = '96vw';
-        card.style.maxWidth = '1400px';
-        card.style.minHeight = '92vh';
-        card.style.padding = 'clamp(24px, 3.2vw, 44px)';
-        card.style.borderRadius = '28px';
-
-        if (window.innerWidth <= 640) {
-            card.style.width = '100vw';
-            card.style.maxWidth = '100vw';
-            card.style.minHeight = '100vh';
-            card.style.borderRadius = '0';
-            card.style.padding = '16px';
-        }
-
-        const pill = document.createElement('span');
-        pill.className = 'wager-modal-pill';
-        pill.textContent = minigameUi.pillText;
-
-        const title = document.createElement('h2');
-        title.className = 'wager-modal-title';
-        title.textContent = `${event.minigameName} vs ${opponentName}`;
-
-        const copy = document.createElement('p');
-        copy.className = 'wager-modal-copy minigame-subtitle';
-        copy.textContent = minigameUi.instructions;
-
-        const hud = document.createElement('div');
-        hud.className = 'minigame-hud';
-
-        const timerText = document.createElement('div');
-        timerText.className = 'minigame-hud-item minigame-timer';
-        timerText.textContent = 'Time left: 5.0s';
-
-        const scoreText = document.createElement('div');
-        scoreText.className = 'minigame-hud-item minigame-score';
-        scoreText.textContent = 'Your score: 0';
-
-        hud.appendChild(timerText);
-        hud.appendChild(scoreText);
-
-        const progressTrack = document.createElement('div');
-        progressTrack.className = 'minigame-progress-track';
-        const progressFill = document.createElement('div');
-        progressFill.className = 'minigame-progress-fill';
-        progressTrack.appendChild(progressFill);
-
-        const smashTarget = document.createElement('img');
-        smashTarget.className = 'minigame-smash-image';
-        smashTarget.alt = 'Pillow Smash target';
-        smashTarget.draggable = false;
-        smashTarget.loading = 'eager';
-        smashTarget.decoding = 'sync';
-        smashTarget.src = pillowSmashImageFallback;
-        smashTarget.onerror = () => {
-            // Fallback to module-resolved URL if direct source path fails.
-            smashTarget.onerror = null;
-            smashTarget.src = pillowSmashImage;
-        };
-        smashTarget.onclick = () => {
-            if (this.hasSubmittedMinigameScore) return;
-            this.currentMinigameScore += 1;
-            scoreText.textContent = `Your score: ${this.currentMinigameScore}`;
-            smashTarget.classList.remove('smash-hit');
-            // Restart short animation on rapid taps.
-            void smashTarget.offsetWidth;
-            smashTarget.classList.add('smash-hit');
-        };
-
-        const arena = document.createElement('div');
-        arena.className = 'minigame-arena';
-        arena.appendChild(smashTarget);
-
-        card.appendChild(pill);
-        card.appendChild(title);
-        card.appendChild(copy);
-        card.appendChild(hud);
-        card.appendChild(progressTrack);
-        card.appendChild(arena);
-
-        // Safety guard: if any stale button node is injected, remove it so
-        // Pillow Smash only uses the pillow picture as the clickable target.
-        card.querySelectorAll('button').forEach((buttonNode) => {
-            buttonNode.remove();
-        });
-
-        overlay.appendChild(card);
-
-        document.body.appendChild(overlay);
-        this.activeMinigameModal = overlay;
-
-        const startedAt = Date.now();
-        this.activeMinigameTimer = window.setInterval(() => {
-            const elapsedMs = Date.now() - startedAt;
-            const remainingMs = Math.max(0, 5000 - elapsedMs);
-            timerText.textContent = `Time left: ${(remainingMs / 1000).toFixed(1)}s`;
-            const elapsedRatio = Math.min(1, elapsedMs / 5000);
-            progressFill.style.width = `${(1 - elapsedRatio) * 100}%`;
-        }, 100);
-
-        this.activeMinigameDurationTimer = window.setTimeout(() => {
-            this.submitMinigameScore();
-            smashTarget.classList.add('smash-disabled');
-            smashTarget.style.pointerEvents = 'none';
-            smashTarget.title = minigameUi.waitingLabel;
-            timerText.textContent = 'Time left: 0.0s';
-            progressFill.style.width = '0%';
-        }, 5000);
-    }
-
-    launchMinigameScene<T extends MinigameScene>(minigameScene: MinigameScene, minigameDef: MinigameDefinition): T {
-        // Pause this scene so the game world stops updating
-        this.scene.pause();
-
-        // Add and start the overlay scene instance
-        const sceneKey = minigameDef.id;
-        const child = this.scene.add(sceneKey, minigameScene) as T;
-
-        // Bring it above everything
-        this.scene.bringToTop(sceneKey);
-
-        // When the overlay shuts down, resume this scene and remove the overlay
-        if (child && child.events) {
-            child.events.once('shutdown', () => {
-                this.scene.resume();
-                try {
-                    this.scene.remove(sceneKey);
-                } catch (e) {
-                    // ignore
-                }
-            });
-        }
-
-        return child;
-    }
-
-    submitMinigameScore() {
-        if (this.hasSubmittedMinigameScore) return;
-        if (!this.currentMinigameRequestId) return;
-
-        this.hasSubmittedMinigameScore = true;
-        this.socket?.emit('submitMinigameScore', {
-            requestId: this.currentMinigameRequestId,
-            score: this.currentMinigameScore,
-        });
-    }
-
-    handleMinigameCompleted(event: MinigameCompletedEvent) {
-        if (!this.currentPlayer) return;
-        if (this.currentMinigameRequestId !== event.requestId) return;
-
-        const winnerId = event.winnerPlayerId;
-        const myId = this.currentPlayer.playerId;
-        const myScore = event.scores.find((entry) => entry.playerId === myId)?.score ?? 0;
-        const opponentScore = event.scores.find((entry) => entry.playerId !== myId)?.score ?? 0;
-
-        this.closeMinigameModal();
-
-        if (!winnerId) {
-            this.showWagerToast(`Tie game (${myScore}-${opponentScore}). No pillow-fight winner this round.`);
-            return;
-        }
-
-        if (winnerId === myId) {
-            this.showWagerToast(`You won ${event.minigameName} (${myScore}-${opponentScore}) and won the pillow fight!`);
-            return;
-        }
-
-        const winnerName = this.players.get(winnerId)?.playerName ?? 'Opponent';
-        this.showWagerToast(`${winnerName} won ${event.minigameName} (${opponentScore}-${myScore}) and won the pillow fight.`);
-    }
-
-    closeMinigameModal() {
-        if (this.activeMinigameTimer !== null) {
-            window.clearInterval(this.activeMinigameTimer);
-            this.activeMinigameTimer = null;
-        }
-
-        if (this.activeMinigameDurationTimer !== null) {
-            window.clearTimeout(this.activeMinigameDurationTimer);
-            this.activeMinigameDurationTimer = null;
-        }
-
-        if (this.activeMinigameModal) {
-            this.activeMinigameModal.remove();
-            this.activeMinigameModal = null;
-        }
-
-        this.currentMinigameScore = 0;
-        this.currentMinigameRequestId = null;
-        this.hasSubmittedMinigameScore = false;
     }
 
     createLeaderboardButton() {

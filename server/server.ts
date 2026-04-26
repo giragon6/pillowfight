@@ -588,6 +588,24 @@ io.on('connection', (socket) => {
         activeMinigames.delete(session.requestId);
     });
 
+    socket.on('minigameInteraction', (requestId, data) => {
+        const session = activeMinigames.get(requestId);
+        if (!session) {
+            return;
+        }
+
+        if (!session.players.includes(socket.id)) {
+            return;
+        }
+
+        const opponentId = session.players.find((playerId) => playerId !== socket.id);
+        if (!opponentId) {
+            return;
+        }
+
+        io.to(opponentId).emit('minigameInteracted', requestId, data);
+    });
+
     //todo: handle this (show game UI)
     socket.on('gameSceneReady', () => {
 
