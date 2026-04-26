@@ -38,6 +38,11 @@ export const MINIGAMES: MinigameDefinition[] = [
 		id: 'tow',
 		name: 'Tug of War',
 		description: ''
+	},
+	{
+		id: 'tri',
+		name: 'Trivia',
+		description: ''
 	}
 ];
 

@@ -3,6 +3,7 @@ import type { GameScene } from "../GameScene";
 import { ModalMinigame, SceneMinigame, type MinigameDefinition, type MinigameEndToastContext, type SceneMinigameContext } from "./Minigame";
 import type { MinigameScene } from "./MinigameScene";
 import { PillowSmash } from "./pillowSmash/PillowSmash";
+import { Trivia } from "./trivia/Trivia";
 import { TugOfWar } from "./tugOfWar/TugOfWar";
 
 export default class MinigameManager {
@@ -62,6 +63,10 @@ export default class MinigameManager {
 
         if (event.minigameId === 'tow') {
             return new TugOfWar(event.requestId, this.gameScene, def, sceneContext);
+        }
+
+        if (event.minigameId === 'tri') {
+            return new Trivia(event.requestId, this.gameScene, def);
         }
 
         return null;
