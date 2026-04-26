@@ -17,7 +17,9 @@
 }
 
 .leaderboard-qr {
-  width: 20%;
+  height: 15vh;
+  padding-left: 3vw;
+  padding-right: 3vw;
 }
 
 .leaderboard-header-wrapper {
