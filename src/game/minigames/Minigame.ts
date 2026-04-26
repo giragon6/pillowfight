@@ -1,3 +1,4 @@
+import type { MinigameStartedEvent } from "../../../server/events";
 import type { GameScene } from "../GameScene";
 import type { MinigameScene } from "./MinigameScene";
 import { TugOfWarScene } from "./tugOfWar/TugOfWarScene";
@@ -8,12 +9,27 @@ export type MinigameDefinition = {
 	description: string;
 };
 
+export type MinigameEndToastContext = {
+	minigameName: string;
+	myScore: number;
+	opponentScore: number;
+	opponentName: string;
+	winnerPlayerId: string | null;
+	currentPlayerId: string;
+	currentPlayerName: string;
+};
+
 export const MINIGAMES: MinigameDefinition[] = [
 	{
-		id: 'pillow-smash',
+		id: 'pls',
 		name: 'Pillow Smash',
 		description: 'Click the pillow as fast as you can for 5 seconds. Highest clicks wins.',
 	},
+	{
+		id: 'tow',
+		name: 'Tug of War',
+		description: ''
+	}
 ];
 
 export const MINIGAME_SCENES: Record<string, typeof MinigameScene> = {
@@ -28,7 +44,6 @@ export function pickRandomMinigame(): MinigameDefinition {
 export abstract class Minigame {
 	requestId: string;
 	gameScene: GameScene;
-	minigameScene: MinigameScene | null;
 	def: MinigameDefinition;
 
 	constructor(
@@ -39,12 +54,6 @@ export abstract class Minigame {
 		this.requestId = requestId;
 		this.gameScene = gameScene;
 		this.def = def;
-		this.minigameScene = null;
-		const minigameSceneType = MINIGAME_SCENES[this.def.id];
-		if (minigameSceneType) {
-			//@ts-ignore
-			this.minigameScene = new minigameSceneType(this.def.id, this.gameScene);
-		}
 		this.setupSocketListeners();
 	}
 
@@ -61,4 +70,28 @@ export abstract class Minigame {
 	}
 
 	abstract handleInteraction(data: any): void;
+	abstract getEndToastMessage(context: MinigameEndToastContext): string;
+}
+
+export abstract class SceneMinigame extends Minigame {
+	minigameScene: MinigameScene;
+
+	constructor(
+		requestId: string, 
+		gameScene: GameScene, 
+		def: MinigameDefinition
+	) {
+		super(requestId, gameScene, def);
+		const minigameSceneType = MINIGAME_SCENES[this.def.id];
+		const MinigameSceneCtor = minigameSceneType as unknown as new (
+			key: string,
+			gameScene: GameScene,
+			minigame: Minigame
+		) => MinigameScene;
+		this.minigameScene = new MinigameSceneCtor(this.def.id, this.gameScene, this);
+	}
+}
+
+export abstract class ModalMinigame extends Minigame {
+	abstract openMinigameModal(event: MinigameStartedEvent): void;
 }
