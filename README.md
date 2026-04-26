@@ -1,5 +1,32 @@
-# React + TypeScript + Vite
+# Pillow Fight 
 
+![Pancake HP](./src/assets/pancake%20hp.png)
+Pillow Fight is a sleepover themed multiplayer game. Each player gets to bet their tiles with other players on games. The winning player gains the total sum of tiles while the one losing loses their bet tiles. 
+There's faction and character tribes that can be tracked on the realtime leaderboard. It is based off the tile colors of lavender, yellow, blue and pink and our meme and pancake characters (fat bunny). 
+
+## Minigames
+The minigames in the territory challenge are randomized and include:
+- Pillow Smash 
+- Tug of War 
+- Trivia
+
+## Purpose
+It's a game we find really fun collaborating with other people real time! The aim is to create a fun experience for teenagers :)
+
+## Tech Stack
+React (framework)  
+Express (backend)  
+Socket.io (multiplayer)   
+Vite (bundler)  
+TypeScript  
+HTML  
+CSS  
+JavaScript  
+
+## Art
+We have many handdrawn assets in the game, including a header title by Emme and Pancakes drawn by Kat! 
+
+## React + TypeScript + Vite
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
