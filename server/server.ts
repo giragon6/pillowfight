@@ -95,11 +95,9 @@ app.get('/leaderboard', (_req, res) => {
 
 // Spawn patch size for each player (5x5 by default)
 const SPAWN_PATCH_SIZE = 5;
-type PendingWagerRequest = WagerRequestEvent & {
-    requesterBetTiles: number;
-};
+type PendingWagerSession = WagerRequestEvent;
 
-const pendingWagerRequests = new Map<string, PendingWagerRequest>();
+const pendingWagerSessions = new Map<string, PendingWagerSession>();
 const activeMinigames = new Map<
     string,
     {
@@ -225,9 +223,9 @@ function pruneStalePlayers() {
     for (const stalePlayerId of stalePlayerIds) {
         removePlayerAndTerritory(stalePlayerId);
 
-        for (const [requestId, request] of pendingWagerRequests.entries()) {
+        for (const [requestId, request] of pendingWagerSessions.entries()) {
             if (request.fromPlayerId === stalePlayerId || request.toPlayerId === stalePlayerId) {
-                pendingWagerRequests.delete(requestId);
+                pendingWagerSessions.delete(requestId);
             }
         }
 
@@ -347,8 +345,9 @@ io.on('connection', (socket) => {
     socket.on('sendWagerRequest', (data) => {
         const sender = gameManager.getPlayer(socket.id);
         const recipientSocket = io.sockets.sockets.get(data.toPlayerId);
-        const requesterBetTiles = sanitizeBetTiles(data.betTiles);
-        const requesterOwnedTiles = getOwnedTileCount(socket.id);
+        const challengerBetTiles = sanitizeBetTiles(data.betTiles);
+        const challengerOwnedTiles = getOwnedTileCount(socket.id);
+        const opponentOwnedTiles = getOwnedTileCount(data.toPlayerId);
 
         if (!sender || !recipientSocket || data.toPlayerId === socket.id) {
             console.log('Wager request dropped:', {
@@ -360,7 +359,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        if (!isBetInAllowedRange(requesterBetTiles)) {
+        if (!isBetInAllowedRange(challengerBetTiles)) {
             socket.emit('wagerRequestResult', {
                 requestId: '',
                 fromPlayerId: socket.id,
@@ -373,7 +372,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        if (requesterBetTiles > requesterOwnedTiles) {
+        if (challengerBetTiles > challengerOwnedTiles) {
             socket.emit('wagerRequestResult', {
                 requestId: '',
                 fromPlayerId: socket.id,
@@ -381,139 +380,204 @@ io.on('connection', (socket) => {
                 accepted: false,
                 minigameId: data.minigameId,
                 minigameName: data.minigameName,
-                reason: `You can bet at most ${requesterOwnedTiles} tiles right now.`,
+                reason: `You can bet at most ${challengerOwnedTiles} tiles right now.`,
+            });
+            return;
+        }
+
+        if (challengerBetTiles > opponentOwnedTiles) {
+            socket.emit('wagerRequestResult', {
+                requestId: '',
+                fromPlayerId: socket.id,
+                toPlayerId: data.toPlayerId,
+                accepted: false,
+                minigameId: data.minigameId,
+                minigameName: data.minigameName,
+                reason: `Opening wager cannot exceed your opponent's ${opponentOwnedTiles} tiles.`,
             });
             return;
         }
 
         const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const requestEvent: PendingWagerRequest = {
+        const requestEvent: PendingWagerSession = {
             requestId,
             fromPlayerId: socket.id,
             fromUsername: sender.username,
             toPlayerId: data.toPlayerId,
             minigameId: data.minigameId,
             minigameName: data.minigameName,
-            requesterBetTiles,
+            currentBetTiles: challengerBetTiles,
+            nextActorPlayerId: data.toPlayerId,
         };
 
-        pendingWagerRequests.set(requestId, requestEvent);
+        pendingWagerSessions.set(requestId, requestEvent);
         recipientSocket.emit('wagerRequestReceived', {
-            requestId,
-            fromPlayerId: socket.id,
-            fromUsername: sender.username,
-            toPlayerId: data.toPlayerId,
-            minigameId: data.minigameId,
-            minigameName: data.minigameName,
+            ...requestEvent,
+        });
+
+        io.to(socket.id).emit('wagerNegotiationUpdated', {
+            ...requestEvent,
         });
     });
 
-    socket.on('sendWagerResponse', (data) => {
-        const pendingRequest = pendingWagerRequests.get(data.requestId);
-        if (!pendingRequest) {
+    socket.on('sendWagerAction', (data) => {
+        const pendingSession = pendingWagerSessions.get(data.requestId);
+        if (!pendingSession) {
             return;
         }
 
-        if (pendingRequest.toPlayerId !== socket.id || pendingRequest.fromPlayerId !== data.fromPlayerId) {
+        const players = [pendingSession.fromPlayerId, pendingSession.toPlayerId] as [string, string];
+        if (!players.includes(socket.id)) {
             return;
         }
 
-        if (!data.accepted) {
-            const declinedResult = {
-                requestId: pendingRequest.requestId,
-                fromPlayerId: pendingRequest.fromPlayerId,
-                toPlayerId: pendingRequest.toPlayerId,
+        if (pendingSession.nextActorPlayerId !== socket.id) {
+            socket.emit('wagerRequestResult', {
+                requestId: pendingSession.requestId,
+                fromPlayerId: pendingSession.fromPlayerId,
+                toPlayerId: pendingSession.toPlayerId,
                 accepted: false,
-                minigameId: pendingRequest.minigameId,
-                minigameName: pendingRequest.minigameName,
+                minigameId: pendingSession.minigameId,
+                minigameName: pendingSession.minigameName,
+                reason: 'Wait for your turn to act on this wager.',
+            });
+            return;
+        }
+
+        const otherPlayerId = players.find((playerId) => playerId !== socket.id)!;
+
+        if (data.action === 'decline') {
+            const declinedResult = {
+                requestId: pendingSession.requestId,
+                fromPlayerId: pendingSession.fromPlayerId,
+                toPlayerId: pendingSession.toPlayerId,
+                accepted: false,
+                minigameId: pendingSession.minigameId,
+                minigameName: pendingSession.minigameName,
+                reason: socket.id === pendingSession.fromPlayerId
+                    ? `${pendingSession.fromUsername} declined the wager.`
+                    : 'Opponent declined the wager.',
             };
 
-            io.to(pendingRequest.fromPlayerId).emit('wagerRequestResult', declinedResult);
-            io.to(pendingRequest.toPlayerId).emit('wagerRequestResult', declinedResult);
-            pendingWagerRequests.delete(data.requestId);
+            io.to(pendingSession.fromPlayerId).emit('wagerRequestResult', declinedResult);
+            io.to(pendingSession.toPlayerId).emit('wagerRequestResult', declinedResult);
+            pendingWagerSessions.delete(data.requestId);
             return;
         }
 
-        const responderBetTiles = sanitizeBetTiles(data.betTiles ?? 0);
-        const responderOwnedTiles = getOwnedTileCount(socket.id);
-        if (!isBetInAllowedRange(responderBetTiles)) {
-            socket.emit('wagerRequestResult', {
-                requestId: pendingRequest.requestId,
-                fromPlayerId: pendingRequest.fromPlayerId,
-                toPlayerId: pendingRequest.toPlayerId,
-                accepted: false,
-                minigameId: pendingRequest.minigameId,
-                minigameName: pendingRequest.minigameName,
-                reason: 'Your bet must be a whole number and minimum 5.',
-            });
+        if (data.action === 'raise') {
+            const raisedBetTiles = sanitizeBetTiles(data.betTiles ?? 0);
+            const raiserOwnedTiles = getOwnedTileCount(socket.id);
+            const otherOwnedTiles = getOwnedTileCount(otherPlayerId);
+            const maxAllowedRaise = Math.min(raiserOwnedTiles, otherOwnedTiles);
+
+            if (!isBetInAllowedRange(raisedBetTiles)) {
+                socket.emit('wagerRequestResult', {
+                    requestId: pendingSession.requestId,
+                    fromPlayerId: pendingSession.fromPlayerId,
+                    toPlayerId: pendingSession.toPlayerId,
+                    accepted: false,
+                    minigameId: pendingSession.minigameId,
+                    minigameName: pendingSession.minigameName,
+                    reason: 'Your raise must be a whole number and minimum 5.',
+                });
+                return;
+            }
+
+            if (raisedBetTiles <= pendingSession.currentBetTiles) {
+                socket.emit('wagerRequestResult', {
+                    requestId: pendingSession.requestId,
+                    fromPlayerId: pendingSession.fromPlayerId,
+                    toPlayerId: pendingSession.toPlayerId,
+                    accepted: false,
+                    minigameId: pendingSession.minigameId,
+                    minigameName: pendingSession.minigameName,
+                    reason: `Raise must be greater than current wager (${pendingSession.currentBetTiles}).`,
+                });
+                return;
+            }
+
+            if (raisedBetTiles > maxAllowedRaise) {
+                socket.emit('wagerRequestResult', {
+                    requestId: pendingSession.requestId,
+                    fromPlayerId: pendingSession.fromPlayerId,
+                    toPlayerId: pendingSession.toPlayerId,
+                    accepted: false,
+                    minigameId: pendingSession.minigameId,
+                    minigameName: pendingSession.minigameName,
+                    reason: `You can raise to at most ${maxAllowedRaise} tiles based on both players' territory.`,
+                });
+                return;
+            }
+
+            pendingSession.currentBetTiles = raisedBetTiles;
+            pendingSession.nextActorPlayerId = otherPlayerId;
+
+            const updateEvent: WagerRequestEvent = {
+                ...pendingSession,
+                raisedByPlayerId: socket.id,
+            };
+            io.to(pendingSession.fromPlayerId).emit('wagerNegotiationUpdated', updateEvent);
+            io.to(pendingSession.toPlayerId).emit('wagerNegotiationUpdated', updateEvent);
             return;
         }
 
-        if (responderBetTiles > responderOwnedTiles) {
-            socket.emit('wagerRequestResult', {
-                requestId: pendingRequest.requestId,
-                fromPlayerId: pendingRequest.fromPlayerId,
-                toPlayerId: pendingRequest.toPlayerId,
-                accepted: false,
-                minigameId: pendingRequest.minigameId,
-                minigameName: pendingRequest.minigameName,
-                reason: `You can bet at most ${responderOwnedTiles} tiles right now.`,
-            });
+        if (data.action !== 'call') {
             return;
         }
 
         const result = {
-            requestId: pendingRequest.requestId,
-            fromPlayerId: pendingRequest.fromPlayerId,
-            toPlayerId: pendingRequest.toPlayerId,
+            requestId: pendingSession.requestId,
+            fromPlayerId: pendingSession.fromPlayerId,
+            toPlayerId: pendingSession.toPlayerId,
             accepted: true,
-            minigameId: pendingRequest.minigameId,
-            minigameName: pendingRequest.minigameName,
+            minigameId: pendingSession.minigameId,
+            minigameName: pendingSession.minigameName,
         };
 
-        io.to(pendingRequest.fromPlayerId).emit('wagerRequestResult', result);
-        io.to(pendingRequest.toPlayerId).emit('wagerRequestResult', result);
+        io.to(pendingSession.fromPlayerId).emit('wagerRequestResult', result);
+        io.to(pendingSession.toPlayerId).emit('wagerRequestResult', result);
 
-        const fromPlayer = gameManager.getPlayer(pendingRequest.fromPlayerId);
-        const toPlayer = gameManager.getPlayer(pendingRequest.toPlayerId);
+        const fromPlayer = gameManager.getPlayer(pendingSession.fromPlayerId);
+        const toPlayer = gameManager.getPlayer(pendingSession.toPlayerId);
         if (!fromPlayer || !toPlayer) {
-            pendingWagerRequests.delete(data.requestId);
+            pendingWagerSessions.delete(data.requestId);
             return;
         }
 
-        const session = {
-            requestId: pendingRequest.requestId,
-            minigameId: pendingRequest.minigameId,
-            minigameName: pendingRequest.minigameName,
-            players: [pendingRequest.fromPlayerId, pendingRequest.toPlayerId] as [string, string],
+        const minigameSession = {
+            requestId: pendingSession.requestId,
+            minigameId: pendingSession.minigameId,
+            minigameName: pendingSession.minigameName,
+            players: [fromPlayer.id, toPlayer.id] as [string, string],
             playerFactions: {
-                [pendingRequest.fromPlayerId]: fromPlayer.faction,
-                [pendingRequest.toPlayerId]: toPlayer.faction,
+                [fromPlayer.id]: fromPlayer.faction,
+                [toPlayer.id]: toPlayer.faction,
             },
             betByPlayer: {
-                [pendingRequest.fromPlayerId]: pendingRequest.requesterBetTiles,
-                [pendingRequest.toPlayerId]: responderBetTiles,
+                [fromPlayer.id]: pendingSession.currentBetTiles,
+                [toPlayer.id]: pendingSession.currentBetTiles,
             },
-            totalBetTiles: pendingRequest.requesterBetTiles + responderBetTiles,
+            totalBetTiles: pendingSession.currentBetTiles * 2,
             scores: new Map<string, number>(),
         };
 
-        activeMinigames.set(session.requestId, session);
+        activeMinigames.set(minigameSession.requestId, minigameSession);
 
-        io.to(session.players[0]).emit('minigameStarted', {
-            requestId: session.requestId,
-            minigameId: session.minigameId,
-            minigameName: session.minigameName,
-            playerIds: session.players,
+        io.to(minigameSession.players[0]).emit('minigameStarted', {
+            requestId: minigameSession.requestId,
+            minigameId: minigameSession.minigameId,
+            minigameName: minigameSession.minigameName,
+            playerIds: minigameSession.players,
         });
-        io.to(session.players[1]).emit('minigameStarted', {
-            requestId: session.requestId,
-            minigameId: session.minigameId,
-            minigameName: session.minigameName,
-            playerIds: session.players,
+        io.to(minigameSession.players[1]).emit('minigameStarted', {
+            requestId: minigameSession.requestId,
+            minigameId: minigameSession.minigameId,
+            minigameName: minigameSession.minigameName,
+            playerIds: minigameSession.players,
         });
 
-        pendingWagerRequests.delete(data.requestId);
+        pendingWagerSessions.delete(data.requestId);
     });
 
     socket.on('submitMinigameScore', (data) => {
@@ -614,9 +678,9 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
 
-        for (const [requestId, request] of pendingWagerRequests.entries()) {
+        for (const [requestId, request] of pendingWagerSessions.entries()) {
             if (request.fromPlayerId === socket.id || request.toPlayerId === socket.id) {
-                pendingWagerRequests.delete(requestId);
+                pendingWagerSessions.delete(requestId);
             }
         }
 

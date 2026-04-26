@@ -10,11 +10,11 @@ import type {
     WagerRequestEvent,
     WagerResultEvent,
 } from '../../server/events'
-import { pickRandomMinigame } from "./minigames/Minigame";
 import './minigames/wagerModal.css'
 import { GameMap } from "../tilemap/GameMap";
 import FACTION_COLORS from "../../shared/factionColors";
 import MinigameManager from "./minigames/MinigameManager";
+import WagerManager from "./wager/WagerManager";
 
 const avatarUrlByKey = new Map(getAvatarAssets().map(({ key, url }) => [key, url]));
 
@@ -45,6 +45,7 @@ export class GameScene extends Phaser.Scene {
     activeLeaderboardModal: HTMLDivElement | null;
     gameMap: GameMap;
     minigameManager: MinigameManager | null = null;
+    wagerManager: WagerManager | null = null;
     
     constructor() {
         super({ key: 'GameScene' });
@@ -76,6 +77,7 @@ export class GameScene extends Phaser.Scene {
         this.socket = socket;
         this.setupSocketListeners();
         this.minigameManager = new MinigameManager(this);
+        this.wagerManager = new WagerManager(this);
     }
 
     preload() {
@@ -227,11 +229,15 @@ export class GameScene extends Phaser.Scene {
         });
 
         this.socket!.on('wagerRequestReceived', (request) => {
-            this.openIncomingWagerModal(request);
+            this.wagerManager?.handleWagerNegotiationUpdate(request);
+        });
+
+        this.socket!.on('wagerNegotiationUpdated', (request) => {
+            this.wagerManager?.handleWagerNegotiationUpdate(request);
         });
 
         this.socket!.on('wagerRequestResult', (result) => {
-            this.handleWagerResult(result);
+            this.wagerManager?.handleWagerResult(result);
         });
     }
 
@@ -312,7 +318,7 @@ export class GameScene extends Phaser.Scene {
                 if (clickedPlayer && clickedPlayer.playerId !== this.currentPlayer.playerId) {
                         this.targetPosition = null;
                         this.hideClickIndicator();
-                        this.openOutgoingWagerModal(clickedPlayer);
+                    this.wagerManager?.openOutgoingWagerModal(clickedPlayer);
                         return;
                 }
         
@@ -362,122 +368,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     openOutgoingWagerModal(targetPlayer: PlayerSprite) {
-        const minigame = pickRandomMinigame();
-
-        const bodyCopy = `${targetPlayer.playerName}, wanna settle this with ${minigame.name}?`;
-
-        const betInput = document.createElement('input');
-        betInput.className = 'wager-bet-input';
-        betInput.type = 'number';
-        betInput.min = '5';
-        betInput.step = '1';
-        betInput.value = '10';
-        betInput.placeholder = 'Bet tiles';
-
-        const helperText = document.createElement('p');
-        helperText.className = 'wager-helper-text';
-        helperText.textContent = 'Minimum bet is 5 tiles.';
-
-        this.openWagerModal({
-            pill: 'Sleepover Challenge',
-            title: `Challenge ${targetPlayer.playerName}?`,
-            body: bodyCopy,
-            customContent: [betInput, helperText],
-            primaryLabel: 'Send Request',
-            secondaryLabel: 'Maybe Later',
-            onPrimary: () => {
-                const betTiles = Math.floor(Number(betInput.value));
-                if (!Number.isInteger(betTiles) || betTiles < 5) {
-                    helperText.textContent = 'Minimum bet is 5 tiles.';
-                    return;
-                }
-
-                this.socket?.emit('sendWagerRequest', {
-                    toPlayerId: targetPlayer.playerId,
-                    minigameId: minigame.id,
-                    minigameName: minigame.name,
-                    betTiles,
-                });
-                this.showWagerToast(`Wager request sent to ${targetPlayer.playerName}.`);
-                this.closeWagerModal();
-            },
-            onSecondary: () => {
-                this.closeWagerModal();
-            },
-        });
+        this.wagerManager?.openOutgoingWagerModal(targetPlayer);
     }
 
     openIncomingWagerModal(request: WagerRequestEvent) {
-        const bodyCopy = `${request.fromUsername} challenged you to ${request.minigameName}.`;
-
-        const betInput = document.createElement('input');
-        betInput.className = 'wager-bet-input';
-        betInput.type = 'number';
-        betInput.min = '5';
-        betInput.step = '1';
-        betInput.value = '10';
-        betInput.placeholder = 'Your hidden bet';
-
-        const helperText = document.createElement('p');
-        helperText.className = 'wager-helper-text';
-        helperText.textContent = 'Minimum bet is 5 tiles.';
-
-        this.openWagerModal({
-            pill: 'Incoming Wager',
-            title: 'Accept this challenge?',
-            body: bodyCopy,
-            customContent: [betInput, helperText],
-            primaryLabel: 'Yes, Let\'s Play',
-            secondaryLabel: 'No Thanks',
-            onPrimary: () => {
-                const betTiles = Math.floor(Number(betInput.value));
-                if (!Number.isInteger(betTiles) || betTiles < 5) {
-                    helperText.textContent = 'Minimum bet is 5 tiles.';
-                    return;
-                }
-
-                this.socket?.emit('sendWagerResponse', {
-                    requestId: request.requestId,
-                    fromPlayerId: request.fromPlayerId,
-                    accepted: true,
-                    betTiles,
-                });
-                this.closeWagerModal();
-            },
-            onSecondary: () => {
-                this.socket?.emit('sendWagerResponse', {
-                    requestId: request.requestId,
-                    fromPlayerId: request.fromPlayerId,
-                    accepted: false,
-                });
-                this.closeWagerModal();
-            },
-        });
+        this.wagerManager?.handleWagerNegotiationUpdate(request);
     }
 
     handleWagerResult(result: WagerResultEvent) {
-        if (!this.currentPlayer) return;
-
-        const isRequester = result.fromPlayerId === this.currentPlayer.playerId;
-        const otherPlayerId = isRequester ? result.toPlayerId : result.fromPlayerId;
-        const otherPlayer = this.players.get(otherPlayerId);
-        const otherName = otherPlayer?.playerName ?? 'Player';
-
-        if (result.accepted) {
-            this.showWagerToast(`${otherName} accepted. ${result.minigameName} starts now.`);
-            return;
-        }
-
-        if (result.reason) {
-            this.showWagerToast(result.reason);
-            return;
-        }
-
-        if (isRequester) {
-            this.showWagerToast(`${otherName} declined your wager request.`);
-        } else {
-            this.showWagerToast('You declined the wager request.');
-        }
+        this.wagerManager?.handleWagerResult(result);
     }
 
     openWagerModal(options: {
@@ -550,6 +449,13 @@ export class GameScene extends Phaser.Scene {
 
         document.body.appendChild(overlay);
         this.activeWagerModal = overlay;
+
+        return {
+            overlay,
+            card,
+            primaryButton,
+            secondaryButton,
+        };
     }
 
     closeWagerModal() {
