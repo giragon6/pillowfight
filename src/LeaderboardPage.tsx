@@ -169,6 +169,7 @@ export default function LeaderboardPage() {
 
   return (
     <main className="leaderboard-page">
+      <h2 className='cta'>PLAY RIGHT NOW AT <a href="pillowfight.onrender.com">pillowfight.onrender.com</a></h2>
       <section className="leaderboard-shell" aria-label="Faction leaderboard">
         <span className="leaderboard-pill">Leaderboard</span>
         <h1>Leaderboard</h1>
