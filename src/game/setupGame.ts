@@ -7,6 +7,7 @@ let gameInstance: Phaser.Game | null = null;
 let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 let gameScene: GameScene | null = null;
 let exitHandlersAttached = false;
+const socketServerUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 
 function attachExitHandlers() {
   if (exitHandlersAttached) return;
@@ -38,7 +39,7 @@ export function setupGame(): {
 
   // Create socket connection if it doesn't exist
   if (!socketInstance) {
-    socketInstance = io('http://localhost:3000', {
+    socketInstance = io(socketServerUrl, {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
