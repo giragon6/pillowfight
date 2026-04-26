@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import FACTION_COLORS, { getFactionIcon, getFactionNickname } from '../shared/factionColors'
 import { getAvatarAssets } from './game/utils/avatarLoader'
+import gameImage from './assets/pillowfight game.png'
 import './LeaderboardPage.css'
 
 type FactionName = 'Lavender' | 'Yellow' | 'Blue' | 'Pink'
@@ -169,7 +170,11 @@ export default function LeaderboardPage() {
 
   return (
     <main className="leaderboard-page">
-      <h2 className='cta'>PLAY RIGHT NOW AT <a href="pillowfight.onrender.com">pillowfight.onrender.com</a></h2>
+      <div className="leaderboard-header-wrapper">
+        <img className="leaderboard-qr" src={gameImage} />
+        <h2 className='cta'>PLAY RIGHT NOW AT <a href="pillowfight.onrender.com">pillowfight.onrender.com</a></h2>
+        <img className="leaderboard-qr" src={gameImage} />
+      </div>
       <section className="leaderboard-shell" aria-label="Faction leaderboard">
         <span className="leaderboard-pill">Leaderboard</span>
         <h1>Leaderboard</h1>
