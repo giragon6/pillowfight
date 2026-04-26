@@ -169,6 +169,10 @@ function App() {
         >
           {isStarting ? 'Starting...' : 'Start'}
         </button>
+
+        <a className="homepage-leaderboard-link" href="/leaderboard">
+          Open Leaderboard
+        </a>
       </section>
     </main>
   )

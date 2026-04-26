@@ -5,6 +5,7 @@ import type { ClientToServerEvents, ServerToClientEvents } from '../../server/ev
 import type { ScenePosition } from "./types";
 import type { GameInitData } from "../../server/server";
 import { preloadAvatarTextures } from "./utils/avatarLoader";
+import { getAvatarAssets } from "./utils/avatarLoader";
 import type {
     MinigameCompletedEvent,
     MinigameStartedEvent,
@@ -15,9 +16,11 @@ import { pickRandomMinigame, type MinigameDefinition } from "./minigames/Minigam
 import { getMinigameUiConfig } from "./minigames/pillowSmash/pillowSmashConfig";
 import './minigames/wagerModal.css'
 import { GameMap } from "../tilemap/GameMap";
+import FACTION_COLORS from "../../shared/factionColors";
 
 const pillowSmashImage = new URL('./minigames/pillowSmash/pillow.jpg', import.meta.url).href;
 const pillowSmashImageFallback = '/src/game/minigames/pillowSmash/pillow.jpg';
+const avatarUrlByKey = new Map(getAvatarAssets().map(({ key, url }) => [key, url]));
 import type { MinigameScene } from "./minigames/MinigameScene";
 
 export class GameScene extends Phaser.Scene {
@@ -48,6 +51,8 @@ export class GameScene extends Phaser.Scene {
     currentMinigameScore: number;
     currentMinigameRequestId: string | null;
     hasSubmittedMinigameScore: boolean;
+    activeLeaderboardButton: HTMLButtonElement | null;
+    activeLeaderboardModal: HTMLDivElement | null;
     gameMap: GameMap;
 
     
@@ -77,6 +82,8 @@ export class GameScene extends Phaser.Scene {
         this.currentMinigameScore = 0;
         this.currentMinigameRequestId = null;
         this.hasSubmittedMinigameScore = false;
+        this.activeLeaderboardButton = null;
+        this.activeLeaderboardModal = null;
 
         this.gameMap = new GameMap(this);
     }
@@ -119,7 +126,11 @@ export class GameScene extends Phaser.Scene {
             this.closeWagerModal();
             this.clearWagerToast();
             this.closeMinigameModal();
+            this.closeLeaderboardModal();
+            this.removeLeaderboardButton();
         });
+
+        this.createLeaderboardButton();
 
         this.scale.on('resize', () => {
             this.fitWorldToViewport();
@@ -806,6 +817,289 @@ export class GameScene extends Phaser.Scene {
         this.currentMinigameScore = 0;
         this.currentMinigameRequestId = null;
         this.hasSubmittedMinigameScore = false;
+    }
+
+    createLeaderboardButton() {
+        this.removeLeaderboardButton();
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'leaderboard-fab';
+        button.setAttribute('aria-label', 'Open faction leaderboard');
+        button.innerHTML = '<span class="leaderboard-fab-icon" aria-hidden="true"></span>';
+        button.onclick = () => this.openLeaderboardModal();
+
+        document.body.appendChild(button);
+        this.activeLeaderboardButton = button;
+    }
+
+    removeLeaderboardButton() {
+        if (!this.activeLeaderboardButton) return;
+        this.activeLeaderboardButton.remove();
+        this.activeLeaderboardButton = null;
+    }
+
+    getFactionTileCounts() {
+        const counts = {
+            Lavender: 0,
+            Yellow: 0,
+            Blue: 0,
+            Pink: 0,
+        };
+
+        const layerData = this.gameMap.tilemapLayer?.layer?.data;
+        if (!layerData) return counts;
+
+        layerData.forEach((row) => {
+            row.forEach((tile) => {
+                if (tile.index === 1) counts.Lavender += 1;
+                if (tile.index === 2) counts.Yellow += 1;
+                if (tile.index === 3) counts.Blue += 1;
+                if (tile.index === 4) counts.Pink += 1;
+            });
+        });
+
+        return counts;
+    }
+
+    getCharacterTileCounts() {
+        const counts = new Map<string, number>();
+        const layerData = this.gameMap.tilemapLayer?.layer?.data;
+        if (!layerData) return counts;
+
+        layerData.forEach((row) => {
+            row.forEach((tile) => {
+                if (tile.index <= 0) return;
+
+                const ownerId = tile.properties?.owner as string | undefined;
+                if (!ownerId) return;
+
+                const owner = this.players.get(ownerId);
+                const avatarKey = owner?.avatarKey ?? 'Unknown';
+                counts.set(avatarKey, (counts.get(avatarKey) ?? 0) + 1);
+            });
+        });
+
+        return counts;
+    }
+
+    persistLeaderboardSnapshot() {
+        const counts = this.getFactionTileCounts();
+        const claimedTiles = counts.Lavender + counts.Yellow + counts.Blue + counts.Pink;
+        const factions = Object.entries(counts)
+            .map(([faction, tiles]) => ({
+                faction,
+                tiles,
+                percentage: claimedTiles === 0 ? 0 : Number(((tiles / claimedTiles) * 100).toFixed(2)),
+            }))
+            .sort((a, b) => b.tiles - a.tiles);
+
+        const characters = Array.from(this.getCharacterTileCounts().entries())
+            .map(([avatarKey, tiles]) => ({
+                avatarKey,
+                tiles,
+                percentage: claimedTiles === 0 ? 0 : Number(((tiles / claimedTiles) * 100).toFixed(2)),
+            }))
+            .sort((a, b) => b.tiles - a.tiles);
+
+        const snapshot = {
+            claimedTiles,
+            totalTiles: this.gameMap.tilemap ? this.gameMap.tilemap.width * this.gameMap.tilemap.height : 0,
+            factions,
+            characters,
+            updatedAt: Date.now(),
+        };
+
+        try {
+            window.localStorage.setItem('leaderboardSnapshot', JSON.stringify(snapshot));
+        } catch (_error) {
+            // Ignore localStorage failures and let the full page use API only.
+        }
+    }
+
+    openLeaderboardModal() {
+        this.closeLeaderboardModal();
+
+        const counts = this.getFactionTileCounts();
+        const entries = Object.entries(counts)
+            .map(([name, tileCount]) => ({ name, tileCount }))
+            .sort((a, b) => b.tileCount - a.tileCount);
+        const totalTiles = entries.reduce((sum, entry) => sum + entry.tileCount, 0);
+        const characterEntries = Array.from(this.getCharacterTileCounts().entries())
+            .map(([avatarKey, tileCount]) => ({ avatarKey, tileCount }))
+            .sort((a, b) => b.tileCount - a.tileCount);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'wager-modal-overlay leaderboard-overlay';
+
+        const card = document.createElement('section');
+        card.className = 'wager-modal-card leaderboard-card';
+
+        const topRow = document.createElement('div');
+        topRow.className = 'leaderboard-top-row';
+
+        const pill = document.createElement('span');
+        pill.className = 'wager-modal-pill';
+        pill.textContent = 'Territory Leaderboard';
+
+        const openInTabLink = document.createElement('a');
+        openInTabLink.className = 'leaderboard-open-tab-link';
+        openInTabLink.href = '/leaderboard';
+        openInTabLink.target = '_blank';
+        openInTabLink.rel = 'noopener noreferrer';
+        openInTabLink.textContent = 'Open full page';
+        openInTabLink.addEventListener('click', () => {
+            this.persistLeaderboardSnapshot();
+        });
+
+        topRow.appendChild(pill);
+        topRow.appendChild(openInTabLink);
+
+        const title = document.createElement('h2');
+        title.className = 'wager-modal-title';
+        title.textContent = 'Faction Leading Teams';
+
+        const leaderLine = document.createElement('p');
+        leaderLine.className = 'wager-modal-copy leaderboard-leader';
+        if (totalTiles === 0) {
+            leaderLine.textContent = 'No faction territory claimed yet.';
+        } else {
+            const leader = entries[0];
+            const leaderPercent = ((leader.tileCount / totalTiles) * 100).toFixed(1);
+            leaderLine.textContent = `${leader.name} is leading with ${leader.tileCount} tiles (${leaderPercent}%).`;
+        }
+
+        const pieChart = document.createElement('div');
+        pieChart.className = 'leaderboard-pie-chart';
+        if (totalTiles === 0) {
+            pieChart.style.background = '#ece6ef';
+        } else {
+            let runningPercent = 0;
+            const segments = entries
+                .filter((entry) => entry.tileCount > 0)
+                .map((entry) => {
+                    const start = runningPercent;
+                    const span = (entry.tileCount / totalTiles) * 100;
+                    runningPercent += span;
+                    const color = `#${FACTION_COLORS[entry.name as keyof typeof FACTION_COLORS]
+                        .toString(16)
+                        .padStart(6, '0')}`;
+                    return `${color} ${start.toFixed(2)}% ${runningPercent.toFixed(2)}%`;
+                });
+            pieChart.style.background = `conic-gradient(${segments.join(', ')})`;
+        }
+
+        const legend = document.createElement('ul');
+        legend.className = 'leaderboard-legend';
+
+        entries.forEach((entry) => {
+            const item = document.createElement('li');
+            item.className = 'leaderboard-legend-item';
+
+            const swatch = document.createElement('span');
+            swatch.className = 'leaderboard-swatch';
+            swatch.style.background = `#${FACTION_COLORS[entry.name as keyof typeof FACTION_COLORS]
+                .toString(16)
+                .padStart(6, '0')}`;
+
+            const percent = totalTiles === 0 ? 0 : (entry.tileCount / totalTiles) * 100;
+            const text = document.createElement('span');
+            text.className = 'leaderboard-legend-text';
+            text.textContent = `${entry.name}: ${entry.tileCount} tiles (${percent.toFixed(1)}%)`;
+
+            item.appendChild(swatch);
+            item.appendChild(text);
+            legend.appendChild(item);
+        });
+
+        const characterLegend = document.createElement('ul');
+        characterLegend.className = 'leaderboard-legend';
+
+        if (characterEntries.length === 0) {
+            const emptyItem = document.createElement('li');
+            emptyItem.className = 'leaderboard-legend-item';
+            const emptyText = document.createElement('span');
+            emptyText.className = 'leaderboard-legend-text';
+            emptyText.textContent = 'No character territory data yet.';
+            emptyItem.appendChild(emptyText);
+            characterLegend.appendChild(emptyItem);
+        } else {
+            characterEntries.forEach((entry) => {
+                const item = document.createElement('li');
+                item.className = 'leaderboard-legend-item';
+
+                const avatar = document.createElement('img');
+                avatar.className = 'leaderboard-character-avatar';
+                avatar.alt = entry.avatarKey;
+                avatar.loading = 'lazy';
+                avatar.decoding = 'async';
+                avatar.src = avatarUrlByKey.get(entry.avatarKey) ?? '';
+
+                const percent = totalTiles === 0 ? 0 : (entry.tileCount / totalTiles) * 100;
+                const text = document.createElement('span');
+                text.className = 'leaderboard-legend-text';
+                text.textContent = `${entry.tileCount} tiles (${percent.toFixed(1)}%)`;
+
+                if (!avatar.src) {
+                    text.textContent = `${entry.avatarKey} - ${text.textContent}`;
+                }
+
+                item.appendChild(avatar);
+                item.appendChild(text);
+                characterLegend.appendChild(item);
+            });
+        }
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'wager-button wager-button-primary leaderboard-close-button';
+        closeButton.textContent = 'Close';
+        closeButton.onclick = () => this.closeLeaderboardModal();
+
+        const splitWrap = document.createElement('div');
+        splitWrap.className = 'leaderboard-split-wrap';
+
+        const factionPanel = document.createElement('section');
+        factionPanel.className = 'leaderboard-panel';
+        const factionPanelTitle = document.createElement('h3');
+        factionPanelTitle.className = 'leaderboard-section-title';
+        factionPanelTitle.textContent = 'Faction Leaderboard';
+        factionPanel.appendChild(factionPanelTitle);
+        factionPanel.appendChild(pieChart);
+        factionPanel.appendChild(legend);
+
+        const characterPanel = document.createElement('section');
+        characterPanel.className = 'leaderboard-panel';
+        const characterTitle = document.createElement('h3');
+        characterTitle.className = 'leaderboard-section-title';
+        characterTitle.textContent = 'Character Leaderboard';
+        characterPanel.appendChild(characterTitle);
+        characterPanel.appendChild(characterLegend);
+
+        splitWrap.appendChild(factionPanel);
+        splitWrap.appendChild(characterPanel);
+
+        card.appendChild(topRow);
+        card.appendChild(title);
+        card.appendChild(leaderLine);
+        card.appendChild(splitWrap);
+        card.appendChild(closeButton);
+        overlay.appendChild(card);
+
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) {
+                this.closeLeaderboardModal();
+            }
+        });
+
+        document.body.appendChild(overlay);
+        this.activeLeaderboardModal = overlay;
+    }
+
+    closeLeaderboardModal() {
+        if (!this.activeLeaderboardModal) return;
+        this.activeLeaderboardModal.remove();
+        this.activeLeaderboardModal = null;
     }
 
     playSpatialAudio(soundKey: string, position: ScenePosition) {
