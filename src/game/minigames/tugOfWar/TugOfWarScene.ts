@@ -6,7 +6,8 @@ export class TugOfWarScene extends MinigameScene {
     gamePanel!: Phaser.GameObjects.Rectangle;
     x!: number;
     y!: number;
-    private onKeyUp = () => { this.minigame.pull() };
+    private onKeyUp = () => { this.minigame.pull(); };
+    private onPointerDown = () => { this.minigame.pull(); };
     me!: Phaser.GameObjects.Image;
     opp!: Phaser.GameObjects.Image;
     rope!: Phaser.GameObjects.Rectangle;
@@ -15,8 +16,10 @@ export class TugOfWarScene extends MinigameScene {
         super.create()
         console.log("Tug of War: Instantiated scene")
         this.input.keyboard?.on('keyup', this.onKeyUp)
+        this.input.on('pointerdown', this.onPointerDown)
         this.events.once('shutdown', () => {
             this.input.keyboard?.off('keyup', this.onKeyUp)
+            this.input.off('pointerdown', this.onPointerDown)
         })
         const createPanelRes = this.createPanel(this.gameScene.scale.width * 0.8, this.gameScene.scale.height*0.7);
         this.gamePanel = createPanelRes.panel;
