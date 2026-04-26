@@ -45,7 +45,20 @@ export abstract class Minigame {
 			//@ts-ignore
 			this.minigameScene = new minigameSceneType(this.def.id, this.gameScene);
 		}
+		this.setupSocketListeners();
 	}
 
-	abstract setupSocketListeners(): void;
+	setupSocketListeners() {
+        this.gameScene.socket?.on('minigameInteracted', (requestId, data) => {
+            if (this.requestId === requestId) {
+                this.handleInteraction(data);
+            }
+        })
+    }
+
+	disconnectSocketListeners() {
+        this.gameScene.socket?.off('minigameInteracted');
+	}
+
+	abstract handleInteraction(data: any): void;
 }

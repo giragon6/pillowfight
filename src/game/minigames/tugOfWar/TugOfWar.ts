@@ -17,12 +17,8 @@ export class TugOfWar extends Minigame {
         this.pulls = 0;
     }
 
-    setupSocketListeners() {
-        this.gameScene.socket?.on('minigameInteracted', (requestId, data) => {
-            if (this.requestId === requestId) {
-                this.pulls -= data.pendingPulls;
-            }
-        })
+    handleInteraction(data: any): void {
+        this.pulls -= data.pendingPulls;
     }
 
     pull = () => this.pendingPulls++;
@@ -37,15 +33,11 @@ export class TugOfWar extends Minigame {
         if (this.pulls >= this.PULL_THRESHOLD) {
             this.gameScene.socket?.emit('submitMinigameScore',
                 {requestId: this.requestId, score: 1})
-            this.endMinigame();
+            this.disconnectSocketListeners();
         } else if (this.pulls <= -this.PULL_THRESHOLD) {
             this.gameScene.socket?.emit('submitMinigameScore',
                 {requestId: this.requestId, score: 0})
-            this.endMinigame();
+            this.disconnectSocketListeners();
         }
-    }
-
-    endMinigame() {
-        this.gameScene.socket?.off('minigameInteracted');
     }
 }
