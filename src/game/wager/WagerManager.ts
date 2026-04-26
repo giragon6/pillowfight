@@ -27,7 +27,7 @@ export default class WagerManager {
         const minigame = pickRandomMinigame();
         const opponentTileCount = this.getOwnedTileCount(targetPlayer.playerId);
 
-        const bodyCopy = `${targetPlayer.playerName}, wanna settle this with ${minigame.name}?`;
+        const bodyCopy = `hey ${targetPlayer.playerName}... LET'S GO GAMBLING!!!`;
 
         const betInput = document.createElement('input');
         betInput.className = 'wager-bet-input';

@@ -8,9 +8,9 @@ import type { Faction } from '../shared/types/factions'
 import './App.css'
 
 function App() {
-  const [playerName, setPlayerName] = useState('Pancake')
-  const [faction, setFaction] = useState('yellow')
-  const [avatar, setAvatar] = useState('1pancake')
+  const [playerName, setPlayerName] = useState('')
+  const [faction, setFaction] = useState('')
+  const [avatar, setAvatar] = useState('')
   const [isStarting, setIsStarting] = useState(false)
   const avatarAssets = getAvatarAssets()
 
