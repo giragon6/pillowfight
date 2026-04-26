@@ -5,11 +5,19 @@ import express from 'express';
 import type { ClientToServerEvents, ServerToClientEvents, SocketData, WagerRequestEvent } from "./events";
 import { Server } from 'socket.io';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import type { ScenePosition } from "../src/game/types";
 import { TILE_INDICES, type TileData } from "./TilemapManager";
 
 const app = express();
 const httpServer = http.createServer(app);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.resolve(__dirname, '../dist');
+
+app.use(express.static(distPath));
 
 const io = new Server<
     ClientToServerEvents,
