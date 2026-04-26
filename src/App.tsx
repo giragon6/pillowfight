@@ -6,9 +6,9 @@ import type { PlayerData } from '../shared/types/playerTypes'
 import './App.css'
 
 function App() {
-  const [playerName, setPlayerName] = useState('')
-  const [faction, setFaction] = useState('')
-  const [avatar, setAvatar] = useState('')
+  const [playerName, setPlayerName] = useState('Pancake')
+  const [faction, setFaction] = useState('yellow')
+  const [avatar, setAvatar] = useState('pancake1')
   const [isStarting, setIsStarting] = useState(false)
   const avatarAssets = getAvatarAssets()
 
