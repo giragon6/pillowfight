@@ -10,7 +10,7 @@ import './App.css'
 function App() {
   const [playerName, setPlayerName] = useState('Pancake')
   const [faction, setFaction] = useState('yellow')
-  const [avatar, setAvatar] = useState('pancake1')
+  const [avatar, setAvatar] = useState('1pancake')
   const [isStarting, setIsStarting] = useState(false)
   const avatarAssets = getAvatarAssets()
 

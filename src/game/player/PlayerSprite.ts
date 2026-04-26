@@ -46,9 +46,11 @@ export default class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
         scene.physics.add.existing(this);
         
         this.body!.setCircle(this.radius);
+        this.setCollideWorldBounds(true);
         
         this.setOrigin(0.5, 0.5);
         this.setDisplaySize(AVATAR_SIZE_PX, AVATAR_SIZE_PX);
+        this.clampToWorldBounds();
         
         this.nameText = scene.add.text(x, y - 35, this.playerName, {
             fontSize: '12px',
@@ -62,11 +64,24 @@ export default class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
 
     updatePosition(x: number, y: number) {
         this.setPosition(x, y);
-        this.nameText.setPosition(x, y - 35);
+        this.clampToWorldBounds();
+        this.nameText.setPosition(this.x, this.y - 35);
+    }
+
+    private clampToWorldBounds() {
+        const bounds = this.scene.physics.world.bounds;
+        const minX = bounds.left + this.radius;
+        const maxX = bounds.right - this.radius;
+        const minY = bounds.top + this.radius;
+        const maxY = bounds.bottom - this.radius;
+
+        this.x = Phaser.Math.Clamp(this.x, minX, maxX);
+        this.y = Phaser.Math.Clamp(this.y, minY, maxY);
     }
 
     preUpdate(time: number, delta: number) {
         super.preUpdate(time, delta);
+        this.clampToWorldBounds();
         if (this.nameText) {
             this.nameText.setPosition(this.x, this.y - 35);
         }
