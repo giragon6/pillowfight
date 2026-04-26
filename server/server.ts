@@ -84,9 +84,42 @@ function buildFactionLeaderboard() {
     };
 }
 
+function buildFactionPopulation() {
+    const counts: Record<Faction, number> = {
+        Lavender: 0,
+        Yellow: 0,
+        Blue: 0,
+        Pink: 0,
+    };
+
+    gameManager.getAllPlayers().forEach((player) => {
+        counts[player.faction] += 1;
+    });
+
+    const rankedFactions = (Object.entries(counts) as Array<[Faction, number]>)
+        .sort((a, b) => b[1] - a[1]);
+    const topFaction = rankedFactions[0];
+    const secondFaction = rankedFactions[1];
+    const majorityFaction = topFaction && (!secondFaction || topFaction[1] > secondFaction[1])
+        ? topFaction[0]
+        : null;
+
+    return {
+        totalPlayers: gameManager.getAllPlayers().length,
+        counts,
+        majorityFaction,
+        updatedAt: Date.now(),
+    };
+}
+
 app.get('/api/leaderboard', (_req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.json(buildFactionLeaderboard());
+});
+
+app.get('/api/faction-population', (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json(buildFactionPopulation());
 });
 
 app.get('/leaderboard', (_req, res) => {
@@ -140,6 +173,27 @@ function getReferenceTile(playerId: string) {
     return { x, y };
 }
 
+function getHomeReferenceTile(playerId: string) {
+    const ownedTiles = gameManager.getTilesByOwner(playerId);
+    if (ownedTiles.length === 0) {
+        return getReferenceTile(playerId);
+    }
+
+    // Use the center of owned territory as "home" so new tiles are awarded nearby.
+    const sum = ownedTiles.reduce(
+        (acc, tile) => {
+            acc.x += tile.x;
+            acc.y += tile.y;
+            return acc;
+        },
+        { x: 0, y: 0 }
+    );
+
+    const centerX = Math.round(sum.x / ownedTiles.length);
+    const centerY = Math.round(sum.y / ownedTiles.length);
+    return { x: centerX, y: centerY };
+}
+
 function distanceFromReference(tile: TileData, ref: { x: number; y: number }) {
     return (tile.x - ref.x) ** 2 + (tile.y - ref.y) ** 2;
 }
@@ -169,7 +223,7 @@ function getEmptyTilesToClaim(winnerPlayerId: string, tileCount: number): Array<
         return [];
     }
 
-    const winnerRef = getReferenceTile(winnerPlayerId);
+    const winnerRef = getHomeReferenceTile(winnerPlayerId);
     return gameManager
         .getTilemap()
         .getAllTiles()

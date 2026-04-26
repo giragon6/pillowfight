@@ -88,6 +88,10 @@
   cursor: pointer;
 }
 
+.faction-choice[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 .faction-choice input {
   position: absolute;
   opacity: 0;
@@ -135,6 +139,23 @@
 
 .faction-choice:hover .faction-swatch {
   border-color: #7a3f84;
+}
+
+.faction-choice[aria-disabled='true'] .faction-swatch {
+  filter: grayscale(1) saturate(0.15) brightness(0.88);
+  opacity: 0.45;
+  transform: none;
+  border-color: rgba(95, 45, 104, 0.12);
+}
+
+.faction-choice[aria-disabled='true']:hover .faction-swatch {
+  border-color: rgba(95, 45, 104, 0.12);
+}
+
+.faction-choice[aria-disabled='true'] input:checked + .faction-swatch {
+  border-color: rgba(95, 45, 104, 0.2);
+  border-width: 1px;
+  transform: none;
 }
 
 .faction-choice input:checked + .faction-swatch {

@@ -16,7 +16,7 @@ export class Trivia extends ModalMinigame {
 
     handleInteraction(_data: any): void {
         if (_data.isFinished) {
-            this.iframe!.src = '/src/game/minigames/trivia/triviasite/question1.html'
+            this.iframe!.src = 'triviasite/question1.html'
             this.finishTrivia(0);
         }
     }
@@ -49,7 +49,7 @@ export class Trivia extends ModalMinigame {
         this.iframe.style.width = "96vw";
         this.iframe.style.maxWidth = "1400px";
         this.iframe.style.minHeight = "92vh";
-        this.iframe.src = '/src/game/minigames/trivia/triviasite/question1.html'
+        this.iframe.src = 'triviasite/question1.html'
 
         if (window.innerWidth <= 640) {
             this.iframe.style.width = "100vw";

@@ -1,3 +1,7 @@
+.cta {
+  font-size: 5vh;
+}
+
 .leaderboard-page {
   min-height: 100dvh;
   width: 100%;
@@ -10,6 +14,16 @@
     radial-gradient(circle at 10% 15%, rgba(255, 233, 244, 0.88), transparent 40%),
     radial-gradient(circle at 88% 72%, rgba(194, 231, 255, 0.8), transparent 36%),
     #f0c2c8;
+}
+
+.leaderboard-qr {
+  height: 15vh;
+  padding-left: 3vw;
+  padding-right: 3vw;
+}
+
+.leaderboard-header-wrapper {
+  display: flex; flex-direction: row;
 }
 
 .leaderboard-shell {
