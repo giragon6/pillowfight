@@ -17,12 +17,14 @@ export type WagerRequestEvent = {
     toPlayerId: string;
     minigameId: string;
     minigameName: string;
+    currentBetTiles: number;
+    nextActorPlayerId: string;
+    raisedByPlayerId?: string;
 };
 
-export type WagerResponsePayload = {
+export type WagerActionPayload = {
     requestId: string;
-    fromPlayerId: string;
-    accepted: boolean;
+    action: 'call' | 'raise' | 'decline';
     betTiles?: number;
 };
 
@@ -66,6 +68,7 @@ export interface ServerToClientEvents {
     tilesClaimed: (tiles: TileData[]) => void;
     tilesUnclaimed: (tiles: TileData[]) => void;
     wagerRequestReceived: (data: WagerRequestEvent) => void;
+    wagerNegotiationUpdated: (data: WagerRequestEvent) => void;
     wagerRequestResult: (data: WagerResultEvent) => void;
     minigameStarted: (data: MinigameStartedEvent) => void;
     minigameCompleted: (data: MinigameCompletedEvent) => void;
@@ -82,7 +85,7 @@ export interface ClientToServerEvents {
     claimTiles: (tiles: Array<{ x: number; y: number }>) => void;
     unclaimTiles: (tiles: Array<{ x: number; y: number }>) => void;
     sendWagerRequest: (data: WagerRequestPayload) => void;
-    sendWagerResponse: (data: WagerResponsePayload) => void;
+    sendWagerAction: (data: WagerActionPayload) => void;
     submitMinigameScore: (data: MinigameScorePayload) => void;
 
     minigameInteraction: (requestId: string, data: any) => void;
