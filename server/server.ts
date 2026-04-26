@@ -112,6 +112,21 @@ function buildFactionPopulation() {
     };
 }
 
+function parseFactionParam(value: string): Faction | null {
+    switch (value.toLowerCase()) {
+        case 'lavender':
+            return 'Lavender';
+        case 'yellow':
+            return 'Yellow';
+        case 'blue':
+            return 'Blue';
+        case 'pink':
+            return 'Pink';
+        default:
+            return null;
+    }
+}
+
 app.get('/api/leaderboard', (_req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.json(buildFactionLeaderboard());
@@ -120,6 +135,26 @@ app.get('/api/leaderboard', (_req, res) => {
 app.get('/api/faction-population', (_req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.json(buildFactionPopulation());
+});
+
+app.get('/api/players/:faction', (req, res) => {
+    const faction = parseFactionParam(req.params.faction);
+    if (!faction) {
+        res.status(400).json({ error: 'Invalid faction' });
+        return;
+    }
+
+    const players = gameManager
+        .getAllPlayers()
+        .filter((player) => player.faction === faction)
+        .map((player) => ({
+            id: player.id,
+            name: player.username,
+            avatar: player.avatar,
+        }));
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json(players);
 });
 
 app.get('/leaderboard', (_req, res) => {
