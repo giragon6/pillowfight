@@ -39,8 +39,6 @@ export class Trivia extends ModalMinigame {
 
         this.gameScene.minigameManager?.closeMinigameModal(false);
 
-        const opponentId = event.playerIds.find((id) => id !== this.gameScene.currentPlayer!.playerId) ?? "";
-
         const overlay = document.createElement("div");
         overlay.className = "wager-modal-overlay minigame-overlay-fullscreen";
         overlay.style.padding = "0";
