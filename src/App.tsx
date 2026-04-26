@@ -3,6 +3,8 @@ import headerImage from './assets/homepage/pillowfight-title.png'
 import { setupGame } from './game/setupGame'
 import { getAvatarAssets } from './game/utils/avatarLoader'
 import type { PlayerData } from '../shared/types/playerTypes'
+import { getFactionIcon } from '../shared/factionColors'
+import type { Faction } from '../shared/types/factions'
 import './App.css'
 
 function App() {
@@ -11,6 +13,21 @@ function App() {
   const [avatar, setAvatar] = useState('pancake1')
   const [isStarting, setIsStarting] = useState(false)
   const avatarAssets = getAvatarAssets()
+
+  const toFactionName = (value: string): Faction => {
+    switch (value) {
+      case 'lavender':
+        return 'Lavender'
+      case 'yellow':
+        return 'Yellow'
+      case 'blue':
+        return 'Blue'
+      case 'pink':
+        return 'Pink'
+      default:
+        return 'Yellow'
+    }
+  }
 
   const handleStart = async () => {
     // Validate form
@@ -87,7 +104,9 @@ function App() {
                 onChange={(e) => setFaction(e.target.value)}
                 disabled={isStarting}
               />
-              <span className="faction-swatch lavender" aria-hidden="true"></span>
+              <span className="faction-swatch lavender" aria-hidden="true">
+                {getFactionIcon(toFactionName('lavender'))}
+              </span>
             </label>
             <label className="faction-choice" htmlFor="faction-yellow">
               <input
@@ -100,7 +119,9 @@ function App() {
                 onChange={(e) => setFaction(e.target.value)}
                 disabled={isStarting}
               />
-              <span className="faction-swatch yellow" aria-hidden="true"></span>
+              <span className="faction-swatch yellow" aria-hidden="true">
+                {getFactionIcon(toFactionName('yellow'))}
+              </span>
             </label>
             <label className="faction-choice" htmlFor="faction-blue">
               <input
@@ -113,7 +134,9 @@ function App() {
                 onChange={(e) => setFaction(e.target.value)}
                 disabled={isStarting}
               />
-              <span className="faction-swatch blue" aria-hidden="true"></span>
+              <span className="faction-swatch blue" aria-hidden="true">
+                {getFactionIcon(toFactionName('blue'))}
+              </span>
             </label>
             <label className="faction-choice" htmlFor="faction-pink">
               <input
@@ -126,7 +149,9 @@ function App() {
                 onChange={(e) => setFaction(e.target.value)}
                 disabled={isStarting}
               />
-              <span className="faction-swatch pink" aria-hidden="true"></span>
+              <span className="faction-swatch pink" aria-hidden="true">
+                {getFactionIcon(toFactionName('pink'))}
+              </span>
             </label>
           </div>
         </fieldset>

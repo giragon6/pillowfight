@@ -7,8 +7,30 @@ export const FACTION_COLORS: Record<Faction, number> = {
   Pink: 0xFF8FC0,
 };
 
+export const FACTION_NICKNAMES: Record<Faction, string> = {
+  Lavender: "Pancake",
+  Yellow: "Croissant",
+  Blue: "Waffle",
+  Pink: "Donut",
+};
+
+export const FACTION_ICONS: Record<Faction, string> = {
+  Lavender: '🥞',
+  Yellow: '🥐',
+  Blue: '🧇',
+  Pink: '🍩',
+};
+
 export function getFactionColor(faction: Faction): number {
   return FACTION_COLORS[faction];
+}
+
+export function getFactionNickname(faction: Faction): string {
+  return FACTION_NICKNAMES[faction];
+}
+
+export function getFactionIcon(faction: Faction): string {
+  return FACTION_ICONS[faction];
 }
 
 export default FACTION_COLORS;

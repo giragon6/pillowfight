@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import FACTION_COLORS from '../shared/factionColors'
+import FACTION_COLORS, { getFactionIcon, getFactionNickname } from '../shared/factionColors'
 import { getAvatarAssets } from './game/utils/avatarLoader'
 import './LeaderboardPage.css'
 
@@ -164,7 +164,7 @@ export default function LeaderboardPage() {
     }
 
     const leader = data.factions[0]
-    return `Current top faction: ${leader.faction} (${leader.tiles} tiles, ${leader.percentage.toFixed(1)}%).`
+    return `Current top faction: ${getFactionNickname(leader.faction)} (${leader.tiles} tiles, ${leader.percentage.toFixed(1)}%).`
   }, [data])
 
   return (
@@ -195,7 +195,7 @@ export default function LeaderboardPage() {
                     style={{ backgroundColor: colorHex(entry.faction) }}
                     aria-hidden="true"
                   />
-                  <span className="leaderboard-name">{entry.faction}</span>
+                  <span className="leaderboard-name">{getFactionNickname(entry.faction)+" "+getFactionIcon(entry.faction)}</span>
                   <span className="leaderboard-count">{entry.tiles} tiles</span>
                   <span className="leaderboard-percent">{entry.percentage.toFixed(1)}%</span>
                 </li>

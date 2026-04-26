@@ -84,6 +84,7 @@
 }
 
 .faction-choice {
+  position: relative;
   cursor: pointer;
 }
 
@@ -94,12 +95,19 @@
 }
 
 .faction-swatch {
-  display: block;
+  position: relative;
+  display: grid;
+  place-items: center;
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 10px;
   border: 1px solid rgba(95, 45, 104, 0.2);
   box-sizing: border-box;
+  font-size: clamp(2.4rem, 3vw, 3.8rem) !important;
+  line-height: 1;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  user-select: none;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35));
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
@@ -127,6 +135,10 @@
 
 .faction-choice:hover .faction-swatch {
   border-color: #7a3f84;
+}
+
+.faction-choice input:checked + .faction-swatch {
+  transform: translateY(-1px) scale(1.08);
 }
 
 .avatars {
