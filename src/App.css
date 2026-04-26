@@ -1,6 +1,7 @@
 .homepage {
   height: 100%;
   min-height: 100%;
+  min-height: 0;
   padding: 10px 20px 20px;
   display: flex;
   flex-direction: column;
@@ -242,11 +243,15 @@
 @media (max-width: 768px) {
   .homepage {
     padding: 8px 14px 14px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   .setup-card {
     margin-top: 14px;
     padding: 16px;
+    margin-bottom: 20px;
   }
 
   .faction-options,
