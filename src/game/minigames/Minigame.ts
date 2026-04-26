@@ -19,6 +19,15 @@ export type MinigameEndToastContext = {
 	currentPlayerName: string;
 };
 
+export type SceneMinigameContext = {
+	currentPlayerId: string;
+	currentPlayerName: string;
+	currentPlayerAvatarKey: string;
+	opponentPlayerId: string;
+	opponentPlayerName: string;
+	opponentPlayerAvatarKey: string;
+};
+
 export const MINIGAMES: MinigameDefinition[] = [
 	{
 		id: 'pls',
@@ -75,13 +84,16 @@ export abstract class Minigame {
 
 export abstract class SceneMinigame extends Minigame {
 	minigameScene: MinigameScene;
+	sceneContext: SceneMinigameContext;
 
 	constructor(
 		requestId: string, 
 		gameScene: GameScene, 
-		def: MinigameDefinition
+		def: MinigameDefinition,
+		sceneContext: SceneMinigameContext
 	) {
 		super(requestId, gameScene, def);
+		this.sceneContext = sceneContext;
 		const minigameSceneType = MINIGAME_SCENES[this.def.id];
 		const MinigameSceneCtor = minigameSceneType as unknown as new (
 			key: string,

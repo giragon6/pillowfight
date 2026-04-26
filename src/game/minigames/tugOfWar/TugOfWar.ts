@@ -1,5 +1,5 @@
 import type { GameScene } from "../../GameScene";
-import { SceneMinigame, type MinigameDefinition, type MinigameEndToastContext } from "../Minigame";
+import { SceneMinigame, type MinigameDefinition, type MinigameEndToastContext, type SceneMinigameContext } from "../Minigame";
 import { TugOfWarScene } from "./TugOfWarScene";
 
 export class TugOfWar extends SceneMinigame {
@@ -12,9 +12,10 @@ export class TugOfWar extends SceneMinigame {
     constructor(
         requestId: string, 
         gameScene: GameScene, 
-        def: MinigameDefinition
+        def: MinigameDefinition,
+        sceneContext: SceneMinigameContext
     ) {
-        super(requestId, gameScene, def);
+        super(requestId, gameScene, def, sceneContext);
         this.pendingPulls = 0;
         this.pulls = 0;
         this.hasFinished = false;
@@ -22,7 +23,8 @@ export class TugOfWar extends SceneMinigame {
     }
 
     handleInteraction(data: any): void {
-        console.log("Tug of War: Handling interaction")
+        console.log("Tug of War: Handling interaction");
+        (this.minigameScene as TugOfWarScene).adjustRope(-data.pendingPulls);
         this.pulls -= data.pendingPulls;
     }
 
@@ -52,7 +54,7 @@ export class TugOfWar extends SceneMinigame {
             { pendingPulls: this.pendingPulls }
             )
         this.pulls += this.pendingPulls;
-        console.log(this.pulls);
+        (this.minigameScene as TugOfWarScene).adjustRope(this.pendingPulls);
         this.pendingPulls = 0;
         if (this.pulls >= this.PULL_THRESHOLD) {
             this.hasFinished = true;
