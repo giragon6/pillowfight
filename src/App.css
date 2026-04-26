@@ -7,14 +7,14 @@
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .homepage-header {
   display: block;
-  width: min(600px, 100%);
+  width: min(370px, calc(100vw - 40px));
   height: auto;
-  margin: -10px auto 0;
+  margin: 5px auto 0;
 }
 
 .setup-card {
