@@ -11,9 +11,10 @@ import type {
     WagerRequestEvent,
     WagerResultEvent,
 } from '../../server/events'
-import { pickRandomMinigame } from "./minigames/Minigame";
+import { pickRandomMinigame, type MinigameDefinition } from "./minigames/Minigame";
 import './minigames/wagerModal.css'
 import { GameMap } from "../tilemap/GameMap";
+import type { MinigameScene } from "./minigames/MinigameScene";
 
 export class GameScene extends Phaser.Scene {
     players: Map<string, PlayerSprite>;
@@ -663,6 +664,32 @@ export class GameScene extends Phaser.Scene {
             tapButton.textContent = 'Waiting For Opponent...';
             timerText.textContent = 'Time left: 0.0s';
         }, 5000);
+    }
+
+    launchMinigameScene<T extends MinigameScene>(minigameScene: MinigameScene, minigameDef: MinigameDefinition): T {
+        // Pause this scene so the game world stops updating
+        this.scene.pause();
+
+        // Add and start the overlay scene instance
+        const sceneKey = minigameDef.id;
+        const child = this.scene.add(sceneKey, minigameScene) as T;
+
+        // Bring it above everything
+        this.scene.bringToTop(sceneKey);
+
+        // When the overlay shuts down, resume this scene and remove the overlay
+        if (child && child.events) {
+            child.events.once('shutdown', () => {
+                this.scene.resume();
+                try {
+                    this.scene.remove(sceneKey);
+                } catch (e) {
+                    // ignore
+                }
+            });
+        }
+
+        return child;
     }
 
     submitMinigameScore() {
