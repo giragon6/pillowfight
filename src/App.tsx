@@ -169,11 +169,11 @@ function App() {
         >
           {isStarting ? 'Starting...' : 'Start'}
         </button>
-
-        <a className="homepage-leaderboard-link" href="/leaderboard">
-          Open Leaderboard
-        </a>
       </section>
+
+      <a className="homepage-leaderboard-fab" href="/leaderboard" aria-label="Open leaderboard">
+        <span className="homepage-leaderboard-fab-icon" aria-hidden="true"></span>
+      </a>
     </main>
   )
 }
