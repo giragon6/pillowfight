@@ -1,6 +1,6 @@
 import type { MinigameCompletedEvent, MinigameStartedEvent } from "../../../server/events";
 import type { GameScene } from "../GameScene";
-import { ModalMinigame, SceneMinigame, type MinigameDefinition, type MinigameEndToastContext } from "./Minigame";
+import { ModalMinigame, SceneMinigame, type MinigameDefinition, type MinigameEndToastContext, type SceneMinigameContext } from "./Minigame";
 import type { MinigameScene } from "./MinigameScene";
 import { PillowSmash } from "./pillowSmash/PillowSmash";
 import { TugOfWar } from "./tugOfWar/TugOfWar";
@@ -44,12 +44,24 @@ export default class MinigameManager {
             description: '',
         };
 
+        const currentPlayer = this.gameScene.currentPlayer;
+        const opponentId = event.playerIds.find((playerId) => playerId !== currentPlayer?.playerId) ?? '';
+        const opponent = opponentId ? this.gameScene.players.get(opponentId) : null;
+        const sceneContext: SceneMinigameContext = {
+            currentPlayerId: currentPlayer?.playerId ?? '',
+            currentPlayerName: currentPlayer?.playerName ?? 'You',
+            currentPlayerAvatarKey: currentPlayer?.avatarKey ?? '',
+            opponentPlayerId: opponentId,
+            opponentPlayerName: opponent?.playerName ?? 'Opponent',
+            opponentPlayerAvatarKey: opponent?.avatarKey ?? '',
+        };
+
         if (event.minigameId === 'pls') {
             return new PillowSmash(event.requestId, this.gameScene, def);
         }
 
         if (event.minigameId === 'tow') {
-            return new TugOfWar(event.requestId, this.gameScene, def);
+            return new TugOfWar(event.requestId, this.gameScene, def, sceneContext);
         }
 
         return null;
