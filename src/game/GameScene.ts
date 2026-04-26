@@ -16,10 +16,7 @@ import { GameMap } from "../tilemap/GameMap";
 import FACTION_COLORS from "../../shared/factionColors";
 import MinigameManager from "./minigames/MinigameManager";
 
-const pillowSmashImage = new URL('./minigames/pillowSmash/pillow.jpg', import.meta.url).href;
-const pillowSmashImageFallback = '/src/game/minigames/pillowSmash/pillow.jpg';
 const avatarUrlByKey = new Map(getAvatarAssets().map(({ key, url }) => [key, url]));
-import type { MinigameScene } from "./minigames/MinigameScene";
 
 export class GameScene extends Phaser.Scene {
     players: Map<string, PlayerSprite>;
